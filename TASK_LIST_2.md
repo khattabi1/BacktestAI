@@ -16,7 +16,7 @@
 | :---: | :--- | :--- | :---: | :---: | :---: |
 | **1** | Monorepo Scaffolding & Python Environment | `.venv`, Tooling & Configs | 10 | 0 | ? Pending |
 | **2** | SQLite WAL Database & Real Schema | SQLAlchemy 2.0 & Alembic | 8 | 8 | ?? Completed |
-| **3** | Core Domain Contracts | Dual Python / TypeScript Types | 6 | 0 | ? Queued |
+| **3** | Core Domain Contracts | Dual Python / TypeScript Types | 6 | 6 | ?? Completed |
 | **4** | MT5 MCP Server & Multi-Worker Fleet | Real MT5 Terminal Engine | 10 | 0 | ? Queued |
 | **5** | Autonomous Quant Agent Engine | Wonder + Spark + MCP Bridge | 12 | 0 | ? Queued |
 | **6** | FastAPI Backend & Real-Time SSE Streams | Agent & MT5 Services Layer | 12 | 0 | ? Queued |
@@ -59,12 +59,12 @@
 ---
 
 ### ?? Phase 3: Core Domain Contracts & Dual-Language Types (`packages/domain`)
-- [ ] **[T2.3.1]** Create `packages/domain/pyproject.toml` and package directory structure.
-- [ ] **[T2.3.2]** Create `packages/domain/domain/models.py` defining Pydantic v2 models: `Candle`, `Tick`, `OrderSide`, `OrderType`, `OrderStatus`, `PendingOrder`, `ReplayPosition`, `Trade`, `SimulationConfig`, `BacktestSession`, `AutopsyDiagnostics`.
-- [ ] **[T2.3.3]** Create `packages/domain/domain/__init__.py` exposing all Pydantic domain models.
-- [ ] **[T2.3.4]** Create `packages/domain/package.json` and `tsconfig.json` for `@backtest-ai/domain`.
-- [ ] **[T2.3.5]** Create `packages/domain/src/index.ts` dual TypeScript contract matching Python domain models.
-- [ ] **[T2.3.6]** Execute TypeScript compilation (`npx tsc --noEmit`) and Python model serialization tests.
+- [x] **[T2.3.1]** Create `packages/domain/pyproject.toml` and package directory structure.
+- [x] **[T2.3.2]** Create `packages/domain/domain/models.py` defining Pydantic v2 models: `Candle`, `Tick`, `OrderSide`, `OrderType`, `OrderStatus`, `PendingOrder`, `ReplayPosition`, `Trade`, `SimulationConfig`, `BacktestSession`, `AutopsyDiagnostics`.
+- [x] **[T2.3.3]** Create `packages/domain/domain/__init__.py` exposing all Pydantic domain models.
+- [x] **[T2.3.4]** Create `packages/domain/package.json` and `tsconfig.json` for `@backtest-ai/domain`.
+- [x] **[T2.3.5]** Create `packages/domain/src/index.ts` dual TypeScript contract matching Python domain models.
+- [x] **[T2.3.6]** Execute TypeScript compilation (`npx tsc --noEmit`) and Python model serialization tests.
 
 ---
 
