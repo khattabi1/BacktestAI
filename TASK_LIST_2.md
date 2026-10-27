@@ -42,7 +42,7 @@
 - [x] **[T2.1.7]** Create root `.env` and `.env.example` templates with Meta Model API (`META_MODEL_API_KEY`, `META_BASE_URL`), Gemini, Redis, and JWT secrets.
 - [x] **[T2.1.8]** Create `alembic.ini` and `alembic/` migration environment (`env.py`, `script.py.mako`).
 - [x] **[T2.1.9]** Create Python virtual environment (`.venv`) using `python -m venv .venv`.
-- [ ] **[T2.1.10]** Activate `.venv`, install all root dependencies (`pip install -r requirements.txt`), and verify clean Python terminal environment.
+- [x] **[T2.1.10]** Activate `.venv`, install all root dependencies (`pip install -r requirements.txt`), and verify clean Python terminal environment.
 
 ---
 
