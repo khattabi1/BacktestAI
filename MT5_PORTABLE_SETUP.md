@@ -13,14 +13,14 @@ BacktestAI uses **isolated portable worker instances** to run headless, high-thr
 
 ```
 mt5_workers/               [Local directory - excluded from Git via .gitignore]
-??? shared_bases/          <-- Shared tick and bar database (NTFS Junction)
-??? shared_experts/        <-- Shared compiled .ex5 strategies
-??? shared_reports/        <-- Stored HTML & CSV strategy tester reports
-??? worker_1/              <-- Primary FastMCP terminal
-??? worker_2/              <-- Parallel backtest worker 2
-??? worker_3/              <-- Parallel backtest worker 3
-??? worker_4/              <-- Parallel backtest worker 4
-??? worker_5/              <-- Parallel backtest worker 5
+|-- shared_bases/          <-- Shared tick and bar database (NTFS Junction)
+|-- shared_experts/        <-- Shared compiled .ex5 strategies
+|-- shared_reports/        <-- Stored HTML & CSV strategy tester reports
+|-- worker_1/              <-- Primary FastMCP terminal
+|-- worker_2/              <-- Parallel backtest worker 2
+|-- worker_3/              <-- Parallel backtest worker 3
+|-- worker_4/              <-- Parallel backtest worker 4
+\-- worker_5/              <-- Parallel backtest worker 5
 ```
 
 ---
