@@ -26,6 +26,12 @@ htmlcov/
 # Local databases & analytics dumps
 *.duckdb
 *.duckdb.wal
+*.db
+*.db-wal
+*.db-shm
+data/sqlite/
+data/uploads/
+
 
 # Environment Variables & Secrets
 .env

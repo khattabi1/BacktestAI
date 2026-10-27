@@ -15,7 +15,7 @@
 | Phase | Description | Focus Area | Tasks | Completed | Status |
 | :---: | :--- | :--- | :---: | :---: | :---: |
 | **1** | Monorepo Scaffolding & Python Environment | `.venv`, Tooling & Configs | 10 | 0 | ? Pending |
-| **2** | SQLite WAL Database & Real Schema | SQLAlchemy 2.0 & Alembic | 8 | 0 | ? Queued |
+| **2** | SQLite WAL Database & Real Schema | SQLAlchemy 2.0 & Alembic | 8 | 1 | ?? In Progress |
 | **3** | Core Domain Contracts | Dual Python / TypeScript Types | 6 | 0 | ? Queued |
 | **4** | MT5 MCP Server & Multi-Worker Fleet | Real MT5 Terminal Engine | 10 | 0 | ? Queued |
 | **5** | Autonomous Quant Agent Engine | Wonder + Spark + MCP Bridge | 12 | 0 | ? Queued |
@@ -47,7 +47,7 @@
 ---
 
 ### ??? Phase 2: SQLite WAL Database & Real Persistence Layer (`alembic` & `apps/api/src/db`)
-- [ ] **[T2.2.1]** Create `apps/api/src/db/session.py` configuring SQLAlchemy 2.0 SQLite WAL database engine (`backtest_ai.db`) with PRAGMA foreign keys.
+- [x] **[T2.2.1]** Create `apps/api/src/db/connection.py` configuring SQLAlchemy 2.0 SQLite WAL database engine (`backtest_ai.db`) with PRAGMA foreign keys.
 - [ ] **[T2.2.2]** Create `apps/api/src/db/models.py` defining SQLAlchemy ORM models: `User`, `UserSession`, `AuditLog`, `Workspace`, `BacktestSessionRecord`, `Strategy`, `StrategyVersion`, `BacktestRun`, `TradeDeal`, `JournalEntry`.
 - [ ] **[T2.2.3]** Create `alembic/versions/8b5401339d98_create_initial_tables.py` containing complete schema migration for all tables and indices.
 - [ ] **[T2.2.4]** Execute `alembic upgrade head` to provision local SQLite database with zero schema errors.
