@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js Frontend Build
+.next/
+out/
+build/
+dist/
+
+# Python Virtual Environments & Cache (Backend / Engine)
+.venv/
+env/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local databases & analytics dumps
+*.duckdb
+*.duckdb.wal
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+client_secret_*.json
+*.json.secret
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# MT5 Worker Instances
+mt5_workers/
