@@ -1,0 +1,31 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "include": [
+    "apps/api",
+    "packages/backtest",
+    "packages/domain",
+    "packages/agent",
+    "packages/mt5_mcp",
+    "scripts"
+  ],
+  "extraPaths": [
+    "packages/backtest",
+    "packages/domain",
+    "packages/agent",
+    "packages/mt5_mcp",
+    "apps/api/src"
+  ],
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": [
+        "packages/backtest",
+        "packages/domain",
+        "packages/agent",
+        "packages/mt5_mcp",
+        "apps/api/src"
+      ]
+    }
+  ]
+}
