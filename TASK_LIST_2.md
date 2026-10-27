@@ -33,15 +33,15 @@
 ---
 
 ### ?? Phase 1: Monorepo Scaffolding, Tooling & Python Virtual Environment (`.venv`)
-- [ ] **[T2.1.1]** Create root `package.json` with workspace configuration (`apps/*`, `packages/*`), monorepo dev scripts, and TypeScript dependencies.
-- [ ] **[T2.1.2]** Create root `.gitignore` ignoring `.venv`, node_modules, `.next`, Python cache, duckdb, `.env`, and MT5 worker directories.
-- [ ] **[T2.1.3]** Create root `requirements.txt` with Polars, NumPy, DuckDB, FastAPI, SQLAlchemy, Alembic, ARQ, Redis, and local editable packages.
-- [ ] **[T2.1.4]** Create root `sitecustomize.py` excluding `data/` and user strategy directories from Uvicorn reloader to prevent server restarts during testing.
-- [ ] **[T2.1.5]** Create `pyrightconfig.json` with strict Python 3.12 typing configuration across all monorepo packages.
-- [ ] **[T2.1.6]** Create `pytest.ini` with `asyncio_mode = auto`, python paths, and execution markers.
-- [ ] **[T2.1.7]** Create root `.env` and `.env.example` templates with Meta Model API (`META_MODEL_API_KEY`, `META_BASE_URL`), Gemini, Redis, and JWT secrets.
-- [ ] **[T2.1.8]** Create `alembic.ini` and `alembic/` migration environment (`env.py`, `script.py.mako`).
-- [ ] **[T2.1.9]** Create Python virtual environment (`.venv`) using `python -m venv .venv`.
+- [x] **[T2.1.1]** Create root `package.json` with workspace configuration (`apps/*`, `packages/*`), monorepo dev scripts, and TypeScript dependencies.
+- [x] **[T2.1.2]** Create root `.gitignore` ignoring `.venv`, node_modules, `.next`, Python cache, duckdb, `.env`, and MT5 worker directories.
+- [x] **[T2.1.3]** Create root `requirements.txt` with Polars, NumPy, DuckDB, FastAPI, SQLAlchemy, Alembic, ARQ, Redis, and local editable packages.
+- [x] **[T2.1.4]** Create root `sitecustomize.py` excluding `data/` and user strategy directories from Uvicorn reloader to prevent server restarts during testing.
+- [x] **[T2.1.5]** Create `pyrightconfig.json` with strict Python 3.12 typing configuration across all monorepo packages.
+- [x] **[T2.1.6]** Create `pytest.ini` with `asyncio_mode = auto`, python paths, and execution markers.
+- [x] **[T2.1.7]** Create root `.env` and `.env.example` templates with Meta Model API (`META_MODEL_API_KEY`, `META_BASE_URL`), Gemini, Redis, and JWT secrets.
+- [x] **[T2.1.8]** Create `alembic.ini` and `alembic/` migration environment (`env.py`, `script.py.mako`).
+- [x] **[T2.1.9]** Create Python virtual environment (`.venv`) using `python -m venv .venv`.
 - [ ] **[T2.1.10]** Activate `.venv`, install all root dependencies (`pip install -r requirements.txt`), and verify clean Python terminal environment.
 
 ---
