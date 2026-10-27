@@ -27,7 +27,7 @@ mt5_workers/               [Local directory - excluded from Git via .gitignore]
 
 ## 2. Quick Setup Guide (Any Broker)
 
-You can use **any MT5 broker** (Portable Broker, Pepperstone, FTMO, Exness, etc.).
+You can use **any MT5 broker** (any regulated broker (Demo or Live), etc.).
 
 ### Step 1: Download & Install Portable MT5
 1. Download the official MetaTrader 5 installer from your preferred broker.
@@ -50,7 +50,7 @@ MT5_TERMINAL_INI="mt5_workers/worker_1/Config/terminal.ini"
 
 # Demo Account Credentials (Free Demo)
 MT5_LOGIN=12345678
-MT5_SERVER=PortableBrokerSC-Demo
+MT5_SERVER=YourBroker-Demo
 MT5_AUTO_LOGIN=true
 ```
 

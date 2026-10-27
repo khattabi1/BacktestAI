@@ -24,7 +24,7 @@ if CREDS.exists():
 mapping = {
     "MT5_LOGIN": creds.get("MT5_LOGIN", "12345678"),
     "MT5_PASSWORD": creds.get("MT5_PASSWORD", ""),
-    "MT5_SERVER": creds.get("MT5_SERVER", "PortableBrokerSC-Demo"),
+    "MT5_SERVER": creds.get("MT5_SERVER", "YourBroker-Demo"),
 }
 
 if ENV.exists():

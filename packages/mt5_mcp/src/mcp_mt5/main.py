@@ -543,7 +543,7 @@ def _auto_login_if_needed() -> bool:
     Credentials (from .env / environment or Config/mt5-login.env):
         MT5_LOGIN          — int account number  (e.g. 12345678)
         MT5_PASSWORD       — str account password
-        MT5_SERVER         — str server name    (e.g. PortableBrokerSC-Demo)
+        MT5_SERVER         — str server name    (e.g. YourBroker-Demo)
 
     Returns:
         True if already logged in or login succeeded, False otherwise.
