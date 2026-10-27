@@ -52,3 +52,6 @@ Thumbs.db
 
 # MT5 Worker Instances (Portable multi-worker fleet - see MT5_PORTABLE_SETUP.md)
 mt5_workers/
+
+# Legacy task list
+TASK_LIST.md
