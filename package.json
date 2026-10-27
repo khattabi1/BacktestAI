@@ -1,0 +1,21 @@
+{
+  "name": "backtest-ai-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backtest AI: Autonomous Quantitative Backtesting & Replay Platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:frontend": "npm --workspace=apps/web run dev",
+    "build:frontend": "npm --workspace=apps/web run build",
+    "lint:frontend": "npm --workspace=apps/web run lint",
+    "dev:api": "uvicorn apps.api.src.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir apps/api/src --reload-dir packages --reload-exclude \"data/*\"",
+    "dev:worker": "python -m arq apps.api.src.worker.WorkerSettings"
+  },
+  "devDependencies": {
+    "dukascopy-node": "^1.50.0",
+    "typescript": "^5.6.3"
+  }
+}
