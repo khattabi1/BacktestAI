@@ -1,16 +1,21 @@
 """
-Database module for Backtest AI providing connection pooling, SQLAlchemy 2.0 ORM models,
-Alembic migration support, SQLite WAL persistence, and typed repositories.
+Database module for Backtest AI providing PostgreSQL & SQLite pooling, SQLAlchemy 2.0 ORM models,
+Alembic migration support, and typed repositories.
 """
 
 from apps.api.src.db.connection import (
     get_db_connection,
     get_db_path,
     get_database_url,
+    get_database_urls,
     create_connection,
     engine,
+    async_engine,
     SessionLocal,
+    AsyncSessionLocal,
     get_db,
+    get_async_db,
+    init_db,
 )
 from apps.api.src.db.models import (
     Base,
@@ -24,21 +29,36 @@ from apps.api.src.db.models import (
     Trade,
     JournalEntry,
     AuditLog,
+    CommunityPost,
+    CommunityComment,
+    CommunityPostLike,
+    CommunityStrategyStar,
+    CommunityBenchmarkCache,
+    CommunityDirectMessage,
+    AgentSession,
+    AgentMessage,
+    AgentTrajectory,
+    AgentArtifact,
 )
 from apps.api.src.db.init_db import init_database
 from apps.api.src.db.repository import db_repo, DatabaseRepository
 
 __all__ = [
-    # Connections & Sessions
+    # Connections & Engines
     "get_db_connection",
     "get_db_path",
     "get_database_url",
+    "get_database_urls",
     "create_connection",
     "engine",
+    "async_engine",
     "SessionLocal",
+    "AsyncSessionLocal",
     "get_db",
+    "get_async_db",
+    "init_db",
     "init_database",
-    # SQLAlchemy 2.0 Models
+    # SQLAlchemy 2.0 Models (20 unified models)
     "Base",
     "User",
     "UserSession",
@@ -50,6 +70,16 @@ __all__ = [
     "Trade",
     "JournalEntry",
     "AuditLog",
+    "CommunityPost",
+    "CommunityComment",
+    "CommunityPostLike",
+    "CommunityStrategyStar",
+    "CommunityBenchmarkCache",
+    "CommunityDirectMessage",
+    "AgentSession",
+    "AgentMessage",
+    "AgentTrajectory",
+    "AgentArtifact",
     # Repositories
     "db_repo",
     "DatabaseRepository",

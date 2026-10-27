@@ -39,8 +39,8 @@ class User(Base):
     tier: Mapped[str] = mapped_column(String(32), server_default="researcher", default="researcher", nullable=False)
     role: Mapped[str] = mapped_column(String(32), server_default="user", default="user", nullable=False)
     is_active: Mapped[int] = mapped_column(Integer, server_default="1", default=1, nullable=False)
-    created_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
-    updated_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
 
     # Relationships
     sessions: Mapped[List["UserSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -48,6 +48,7 @@ class User(Base):
     strategies: Mapped[List["Strategy"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     backtest_sessions: Mapped[List["BacktestSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     journal_entries: Mapped[List["JournalEntry"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    agent_sessions: Mapped[List["AgentSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 class UserSession(Base):
     __tablename__ = "user_sessions"
@@ -58,7 +59,7 @@ class UserSession(Base):
     expires_at: Mapped[str] = mapped_column(String(32), nullable=False)
     user_agent: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     ip_address: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
 
     user: Mapped["User"] = relationship(back_populates="sessions")
 
@@ -74,8 +75,8 @@ class Workspace(Base):
     slug: Mapped[str] = mapped_column(String(128), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_default: Mapped[int] = mapped_column(Integer, server_default="0", default=0, nullable=False)
-    created_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
-    updated_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
 
     user: Mapped["User"] = relationship(back_populates="workspaces")
     strategies: Mapped[List["Strategy"]] = relationship(back_populates="workspace")
@@ -97,8 +98,8 @@ class BacktestSession(Base):
     current_bar_index: Mapped[int] = mapped_column(Integer, server_default="0", default=0, nullable=False)
     status: Mapped[str] = mapped_column(String(32), server_default="active", default="active", nullable=False)
     state_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
-    updated_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
 
     user: Mapped[Optional["User"]] = relationship(back_populates="backtest_sessions")
     trades: Mapped[List["Trade"]] = relationship(back_populates="session")
@@ -119,8 +120,8 @@ class Strategy(Base):
     code: Mapped[str] = mapped_column(Text, nullable=False)
     default_parameters: Mapped[str] = mapped_column(Text, server_default="{}", default="{}", nullable=False)
     is_built_in: Mapped[int] = mapped_column(Integer, server_default="0", default=0, nullable=False)
-    created_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
-    updated_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
 
     user: Mapped[Optional["User"]] = relationship(back_populates="strategies")
     workspace: Mapped[Optional["Workspace"]] = relationship(back_populates="strategies")
@@ -136,7 +137,7 @@ class StrategyVersion(Base):
     code: Mapped[str] = mapped_column(Text, nullable=False)
     parameters: Mapped[str] = mapped_column(Text, server_default="{}", default="{}", nullable=False)
     commit_message: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    created_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
 
     strategy: Mapped["Strategy"] = relationship(back_populates="versions")
 
@@ -167,7 +168,7 @@ class BacktestRun(Base):
     status: Mapped[str] = mapped_column(String(32), server_default="completed", default="completed", nullable=False)
     config_json: Mapped[str] = mapped_column(Text, nullable=False)
     metrics_json: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
 
     strategy: Mapped[Optional["Strategy"]] = relationship(back_populates="runs")
     trades: Mapped[List["Trade"]] = relationship(back_populates="backtest_run", cascade="all, delete-orphan")
@@ -214,8 +215,8 @@ class JournalEntry(Base):
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     tags: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     outcome: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
-    updated_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
 
     user: Mapped["User"] = relationship(back_populates="journal_entries")
 
@@ -229,7 +230,7 @@ class AuditLog(Base):
     resource_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     metadata_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     ip_address: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
 
 
 # -----------------------------------------------------------------------------
@@ -264,7 +265,7 @@ class CommunityPost(Base):
 
     likes_count: Mapped[int] = mapped_column(Integer, server_default="0", default=0)
     comments_count: Mapped[int] = mapped_column(Integer, server_default="0", default=0)
-    created_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
 
     comments: Mapped[List["CommunityComment"]] = relationship(back_populates="post", cascade="all, delete-orphan")
 
@@ -278,7 +279,7 @@ class CommunityComment(Base):
     author_display_name: Mapped[str] = mapped_column(String(128), nullable=False)
     author_avatar_url: Mapped[str] = mapped_column(String(512), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
 
     post: Mapped["CommunityPost"] = relationship(back_populates="comments")
 
@@ -289,7 +290,7 @@ class CommunityPostLike(Base):
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     post_id: Mapped[str] = mapped_column(String(64), ForeignKey("community_posts.id", ondelete="CASCADE"), nullable=False, index=True)
     username: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    created_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
 
 
 class CommunityStrategyStar(Base):
@@ -299,7 +300,7 @@ class CommunityStrategyStar(Base):
     strategy_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     username: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     rating: Mapped[int] = mapped_column(Integer, nullable=False)
-    created_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
 
 
 class CommunityBenchmarkCache(Base):
@@ -311,7 +312,7 @@ class CommunityBenchmarkCache(Base):
     code_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     metrics_json: Mapped[str] = mapped_column(Text, nullable=False)
     ai_audit_json: Mapped[str] = mapped_column(Text, nullable=False)
-    verified_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
+    verified_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
 
 
 class CommunityDirectMessage(Base):
@@ -321,6 +322,68 @@ class CommunityDirectMessage(Base):
     sender_username: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     receiver_username: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[str] = mapped_column(String(32), server_default=func.datetime('now', 'utc'), default=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
     read_at: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
 
+# -----------------------------------------------------------------------------
+# 8. Autonomous Agent Memory, Sessions & Trajectories (AI Chats)
+# -----------------------------------------------------------------------------
+class AgentSession(Base):
+    __tablename__ = "agent_sessions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    state: Mapped[str] = mapped_column(String(64), default="idle", server_default="idle", nullable=False)
+    pending_interaction: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    context_meta: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
+
+    user: Mapped["User"] = relationship(back_populates="agent_sessions")
+    messages: Mapped[List["AgentMessage"]] = relationship(back_populates="session", cascade="all, delete-orphan", order_by="AgentMessage.id")
+    trajectories: Mapped[List["AgentTrajectory"]] = relationship(back_populates="session", cascade="all, delete-orphan", order_by="AgentTrajectory.step_index")
+    artifacts: Mapped[List["AgentArtifact"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+
+
+class AgentMessage(Base):
+    __tablename__ = "agent_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String(64), ForeignKey("agent_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    msg_index: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    role: Mapped[str] = mapped_column(String(32), nullable=False)  # user, assistant, system, tool
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    thought: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    tool_calls_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    tool_call_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    timestamp_utc: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
+
+    session: Mapped["AgentSession"] = relationship(back_populates="messages")
+
+
+class AgentTrajectory(Base):
+    __tablename__ = "agent_trajectories"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String(64), ForeignKey("agent_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    step_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    timestamp_utc: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
+
+    session: Mapped["AgentSession"] = relationship(back_populates="trajectories")
+
+
+class AgentArtifact(Base):
+    __tablename__ = "agent_artifacts"
+
+    artifact_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(64), ForeignKey("agent_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    artifact_type: Mapped[str] = mapped_column(String(64), nullable=False)  # mql5_code, blueprint, report
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    content: Mapped[Text] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
+
+    session: Mapped["AgentSession"] = relationship(back_populates="artifacts")

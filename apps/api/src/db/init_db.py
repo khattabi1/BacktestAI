@@ -26,7 +26,8 @@ def init_database(db_path: Optional[Path] = None) -> None:
     """
     target = db_path or get_db_path()
     db_url = get_database_url(target)
-    sa_engine = create_engine(db_url, connect_args={"check_same_thread": False})
+    connect_args = {"check_same_thread": False} if db_url.startswith("sqlite") else {}
+    sa_engine = create_engine(db_url, connect_args=connect_args)
     
     # Create all tables defined in models.py
     Base.metadata.create_all(bind=sa_engine)
