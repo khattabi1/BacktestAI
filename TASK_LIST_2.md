@@ -15,7 +15,7 @@
 | Phase | Description | Focus Area | Tasks | Completed | Status |
 | :---: | :--- | :--- | :---: | :---: | :---: |
 | **1** | Monorepo Scaffolding & Python Environment | `.venv`, Tooling & Configs | 10 | 0 | ? Pending |
-| **2** | SQLite WAL Database & Real Schema | SQLAlchemy 2.0 & Alembic | 8 | 1 | ?? In Progress |
+| **2** | SQLite WAL Database & Real Schema | SQLAlchemy 2.0 & Alembic | 8 | 8 | ?? Completed |
 | **3** | Core Domain Contracts | Dual Python / TypeScript Types | 6 | 0 | ? Queued |
 | **4** | MT5 MCP Server & Multi-Worker Fleet | Real MT5 Terminal Engine | 10 | 0 | ? Queued |
 | **5** | Autonomous Quant Agent Engine | Wonder + Spark + MCP Bridge | 12 | 0 | ? Queued |
@@ -48,13 +48,13 @@
 
 ### ??? Phase 2: SQLite WAL Database & Real Persistence Layer (`alembic` & `apps/api/src/db`)
 - [x] **[T2.2.1]** Create `apps/api/src/db/connection.py` configuring SQLAlchemy 2.0 SQLite WAL database engine (`backtest_ai.db`) with PRAGMA foreign keys.
-- [ ] **[T2.2.2]** Create `apps/api/src/db/models.py` defining SQLAlchemy ORM models: `User`, `UserSession`, `AuditLog`, `Workspace`, `BacktestSessionRecord`, `Strategy`, `StrategyVersion`, `BacktestRun`, `TradeDeal`, `JournalEntry`.
-- [ ] **[T2.2.3]** Create `alembic/versions/8b5401339d98_create_initial_tables.py` containing complete schema migration for all tables and indices.
-- [ ] **[T2.2.4]** Execute `alembic upgrade head` to provision local SQLite database with zero schema errors.
-- [ ] **[T2.2.5]** Create `apps/api/src/db/repository.py` providing transactional CRUD for sessions, strategy versions, backtest runs, and journal entries.
-- [ ] **[T2.2.6]** Create `apps/api/src/db/__init__.py` exporting database session and models.
-- [ ] **[T2.2.7]** Create seed utility `scripts/seed_demo_data.py` populating default workspace, asset pairs, and demonstration user.
-- [ ] **[T2.2.8]** Verify SQLite database tables, foreign keys, and indexes via pytest receipt (`apps/api/tests/test_db_schema.py`).
+- [x] **[T2.2.2]** Create `apps/api/src/db/models.py` defining SQLAlchemy ORM models: `User`, `UserSession`, `AuditLog`, `Workspace`, `BacktestSessionRecord`, `Strategy`, `StrategyVersion`, `BacktestRun`, `TradeDeal`, `JournalEntry`.
+- [x] **[T2.2.3]** Create `alembic/versions/8b5401339d98_create_initial_tables.py` containing complete schema migration for all tables and indices.
+- [x] **[T2.2.4]** Execute `alembic upgrade head` to provision local SQLite database with zero schema errors.
+- [x] **[T2.2.5]** Create `apps/api/src/db/repository.py` providing transactional CRUD for sessions, strategy versions, backtest runs, and journal entries.
+- [x] **[T2.2.6]** Create `apps/api/src/db/__init__.py` exporting database session and models.
+- [x] **[T2.2.7]** Create seed utility `scripts/seed_demo_data.py` populating default workspace, asset pairs, and demonstration user.
+- [x] **[T2.2.8]** Verify SQLite database tables, foreign keys, and indexes via pytest receipt (`apps/api/tests/test_db_schema.py`).
 
 ---
 
