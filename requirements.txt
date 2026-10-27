@@ -1,0 +1,25 @@
+polars>=0.20.0
+numpy>=1.26.0
+duckdb>=0.10.0
+fastapi>=0.110.0
+uvicorn>=0.28.0
+pydantic>=2.6.0
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pyarrow>=15.0.0
+python-multipart>=0.0.9
+tzdata>=2024.1
+httpx>=0.27.0
+sqlalchemy>=2.0.0
+alembic>=1.13.0
+email-validator>=2.0.0
+pyjwt>=2.8.0
+google-auth>=2.28.0
+requests>=2.31.0
+arq>=0.25.0
+redis>=5.0.0
+
+# Local Monorepo Python Packages
+-e packages/backtest
+-e packages/domain
+-e packages/agent
