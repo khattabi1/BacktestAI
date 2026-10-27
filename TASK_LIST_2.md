@@ -69,21 +69,21 @@
 ---
 
 ### ?? Phase 4: MetaTrader 5 MCP Server & Multi-Worker Fleet (`packages/mt5_mcp` & `mt5_workers`)
-- [ ] **[T2.4.1]** Create `packages/mt5_mcp/pyproject.toml` and package configuration for MT5 MCP Server.
-- [ ] **[T2.4.2]** Create `packages/mt5_mcp/src/mcp_mt5/main.py` exposing 30 MCP tools:
+- [x] **[T2.4.1]** Create `packages/mt5_mcp/pyproject.toml` and package configuration for MT5 MCP Server.
+- [x] **[T2.4.2]** Create `packages/mt5_mcp/src/mcp_mt5/main.py` exposing 30 MCP tools:
   - MetaEditor Compiler: `compile_mql5` (with exact line error parser).
   - Strategy Tester: `run_strategy_tester` (generating dynamic `.ini` files).
   - Report Reader: `read_test_report` (extracting closed deal history).
   - Market Data: `copy_rates_range`, `copy_ticks_range`, `get_symbol_info`, `symbol_select`.
   - Account & Orders: `initialize`, `get_account_info`, `order_send`, `positions_get`.
-- [ ] **[T2.4.3]** Create compilation automation script `packages/mt5_mcp/scripts/compile_ea.py`.
-- [ ] **[T2.4.4]** Create strategy tester automation script `packages/mt5_mcp/scripts/new_run_strategy_tester.py`.
-- [ ] **[T2.4.5]** Create deal and report extraction script `packages/mt5_mcp/scripts/new_read_test_report.py`.
-- [ ] **[T2.4.6]** Create portable launcher scripts: `start_mt5_portable.py`, `sync_env_creds.py`, `verify_setup.py`.
-- [ ] **[T2.4.7]** Create worker provisioning script `scripts/replicate_workers.ps1` setting up 5 isolated MT5 terminals (`mt5_workers/worker_1`..`worker_5`) + shared folders.
-- [ ] **[T2.4.8]** Create test client `packages/mt5_mcp/src/mcp_mt5/test_client.py` for JSON-RPC verification.
-- [ ] **[T2.4.9]** Create institutional MQL5 coding prompt manual `packages/mt5_mcp/SKILLS-codex/MT5_TRADING.md` with diagnostic telemetry standard (`g_ticks_total`, `g_blocked_by_time`, `g_blocked_by_spread`, `g_signals_found`).
-- [ ] **[T2.4.10]** Verify MT5 MCP Server startup and tool listing via automated test receipt.
+- [x] **[T2.4.3]** Create compilation automation script `packages/mt5_mcp/scripts/compile_ea.py`.
+- [x] **[T2.4.4]** Create strategy tester automation script `packages/mt5_mcp/scripts/new_run_strategy_tester.py`.
+- [x] **[T2.4.5]** Create deal and report extraction script `packages/mt5_mcp/scripts/new_read_test_report.py`.
+- [x] **[T2.4.6]** Create portable launcher scripts: `start_mt5_portable.py`, `sync_env_creds.py`, `verify_setup.py`.
+- [x] **[T2.4.7]** Create worker provisioning script `scripts/replicate_workers.ps1` setting up 5 isolated MT5 terminals (`mt5_workers/worker_1`..`worker_5`) + shared folders.
+- [x] **[T2.4.8]** Create test client `packages/mt5_mcp/src/mcp_mt5/test_client.py` for JSON-RPC verification.
+- [x] **[T2.4.9]** Create institutional MQL5 coding prompt manual `packages/mt5_mcp/SKILLS-codex/MT5_TRADING.md` with diagnostic telemetry standard (`g_ticks_total`, `g_blocked_by_time`, `g_blocked_by_spread`, `g_signals_found`).
+- [x] **[T2.4.10]** Verify MT5 MCP Server startup and tool listing via automated test receipt.
 
 ---
 

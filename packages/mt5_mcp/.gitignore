@@ -1,0 +1,48 @@
+# Environment
+.env
+*.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# MT5 generated files
+Tester/cache/
+Tester/logs/*.log
+Logs/*.log
+*.log
+
+# MCP generated
+.mcp/
+
+# Output (keep dirs, ignore contents)
+outputs/html_reports/*
+outputs/excel_reports/*
+_verify_import.py
+_init.json
