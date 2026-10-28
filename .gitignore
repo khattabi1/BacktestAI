@@ -55,3 +55,7 @@ mt5_workers/
 
 # Legacy task list
 TASK_LIST.md
+
+# Internal documentation & agent guidelines (local only)
+.doc/
+.agents/
