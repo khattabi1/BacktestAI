@@ -17,6 +17,7 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 from apps.api.src.db.models import Base
+from apps.api.src.db.connection import engine as app_engine, get_database_url
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -57,11 +58,7 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    connectable = app_engine
 
     with connectable.connect() as connection:
         context.configure(
