@@ -1,0 +1,6 @@
+{
+  "name": "@backtest-ai/agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Autonomous Quant Agent Core Engine for BacktestAI"
+}

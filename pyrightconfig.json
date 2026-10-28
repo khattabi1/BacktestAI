@@ -13,7 +13,7 @@
     "packages/backtest",
     "packages/domain",
     "packages/agent",
-    "packages/mt5_mcp",
+    "packages/mt5_mcp/src",
     "apps/api/src"
   ],
   "executionEnvironments": [
@@ -23,7 +23,7 @@
         "packages/backtest",
         "packages/domain",
         "packages/agent",
-        "packages/mt5_mcp",
+        "packages/mt5_mcp/src",
         "apps/api/src"
       ]
     }

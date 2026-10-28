@@ -1,0 +1,14 @@
+pyproject.toml
+backtest_si/__init__.py
+backtest_si/accounting.py
+backtest_si/engine.py
+backtest_si/execution.py
+backtest_si/metrics.py
+backtest_si/strategy.py
+backtest_si/types.py
+backtest_si.egg-info/PKG-INFO
+backtest_si.egg-info/SOURCES.txt
+backtest_si.egg-info/dependency_links.txt
+backtest_si.egg-info/requires.txt
+backtest_si.egg-info/top_level.txt
+tests/test_engine.py

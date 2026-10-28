@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: backtest-si
+Version: 0.1.0
+Requires-Dist: polars>=0.20.0
+Requires-Dist: numpy>=1.26.0

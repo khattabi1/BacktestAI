@@ -29,8 +29,7 @@ htmlcov/
 *.db
 *.db-wal
 *.db-shm
-data/sqlite/
-data/uploads/
+data/
 
 
 # Environment Variables & Secrets

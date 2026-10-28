@@ -87,49 +87,39 @@
 
 ---
 
-### ?? Phase 5: Autonomous Quant Agent Core Engine (`packages/agent`) [CORE FOCUS]
-- [ ] **[T2.5.1]** Create `packages/agent/pyproject.toml` and package structure.
-- [ ] **[T2.5.2]** Create `packages/agent/src/core/types.py` defining:
-  - Agent state: `IDLE`, `THINKING`, `EXECUTING_TOOL`, `WAITING_FOR_USER`, `DONE`, `ERROR`.
-  - Strategy inception state machine: `DISCUSSING` -> `PRESET_REVIEW` -> `CODE_PROPOSED` -> `COMPILED` -> `READY_FOR_TEST` -> `TESTED` -> `VERSIONED`.
-  - Message contracts, ToolCall, ToolResult, and TrajectoryEvent.
-- [ ] **[T2.5.3]** Create `packages/agent/src/core/events.py` implementing real-time streaming protocol: `THINKING`, `TOOL_CALL`, `TOOL_RESULT`, `STATUS_ANNOUNCEMENT`, `TEST_AUTOPSY_INGESTED`.
-- [ ] **[T2.5.4]** Create `packages/agent/src/core/parser.py` parsing streaming thoughts and tool calls.
-- [ ] **[T2.5.5]** Create `packages/agent/src/core/compaction.py` for token preservation and sliding-window context compaction.
-- [ ] **[T2.5.6]** Create `packages/agent/src/core/introspector.py` analyzing compiler errors (`.log` line parser) and backtest zero-trade diagnostic bottlenecks.
-- [ ] **[T2.5.7]** Create `packages/agent/src/adapters/llm.py` with dynamic Model Router:
-  - **`Auto Mode`**: `Muse Spark 1.3` (frontline chat & MCP tools) + `Muse Wonder` (strategy blueprint planning, pure MQL5 coding, error reflection).
-  - **Direct Model Overrides**: `muse-wonder`, `muse-spark-1.3`.
-  - **Voice Mic Input**: `muse-voice-transcribe` speech-to-text.
-  - **Vision Input**: Multimodal chart screenshot analysis.
-- [ ] **[T2.5.8]** Create `packages/agent/src/tools/mt5_mcp.py` integrating agent directly with MT5 MCP Server tools (`compile_mql5`, `run_strategy_tester`, `read_test_report`).
-- [ ] **[T2.5.9]** Create `packages/agent/src/tools/workspace.py` providing disk-based unversioned `.mq5` strategy file creation and surgical in-place edits (`edit_file_partially`).
-- [ ] **[T2.5.10]** Create `packages/agent/src/tools/analytical.py` (quant forensics, Long/Short asymmetry, toxic hour analysis) and `packages/agent/src/tools/research.py` (`search_web`, `read_web_page`).
-- [ ] **[T2.5.11]** Create `packages/agent/src/sandbox/gates.py` (4-stage HITL approval gate: `PLAN` -> `PREVIEW` -> `APPROVE` -> `EXECUTE`) and `packages/agent/src/storage/sqlite.py` (trajectory persistence).
-- [ ] **[T2.5.12]** Create `packages/agent/src/core/harness.py` implementing the complete autonomous agent loop with Zero-Trade Invariant and Meta model mesh orchestration.
+### 🧠 Phase 5: Autonomous Quant Agent Core Engine (`packages/agent`) [CORE FOCUS]
+- [x] **[T2.5.1]** Create `packages/agent/pyproject.toml`, directory structure (`src/core/`, `src/adapters/`, `src/tools/`, `src/sandbox/`, `src/storage/`, `tests/`), and verify installation in `.venv`.
+- [x] **[T2.5.2]** Create `packages/agent/src/core/types.py` (`AgentState`, `StrategyInceptionState`, `StrategyManifest`, `AgentSessionState`, `validate_strategy_name`) and verify with `test_types.py`.
+- [x] **[T2.5.3]** Create `packages/agent/src/core/events.py` (`TrajectoryEventEmitter` pub/sub queue for SSE streaming) and verify with `test_events.py`.
+- [x] **[T2.5.4]** Create `packages/agent/src/core/parser.py` (`StreamThoughtParser` for `<think>` reasoning extraction) and verify with `test_parser.py`.
+- [x] **[T2.5.5]** Create `packages/agent/src/core/compaction.py` (`QuantSessionDigest` rolling context token compaction) and verify with `test_compaction.py`.
+- [x] **[T2.5.6]** Create `packages/agent/src/core/introspector.py` (deterministic static MQL5 code analyzer) and verify with `test_introspector.py`.
+- [x] **[T2.5.7]** Create `packages/agent/src/adapters/llm.py` (Meta Model Mesh: `muse-spark-1.3`, `muse-wonder`, `muse-voice-transcribe` + multi-provider streaming) and verify with `test_adapters.py`.
+- [x] **[T2.5.8]** Create `packages/agent/src/tools/mt5_mcp.py` (FastMCP 29 tools bridge and backtest results normalizer) and verify with `test_mt5_mcp_tools.py`.
+- [x] **[T2.5.9]** Create `packages/agent/src/tools/workspace.py` (`edit_file_partially` surgical disk edits and AST checks) and verify with `test_workspace_tools.py`.
+- [x] **[T2.5.10]** Create `packages/agent/src/tools/analytical.py`, `research.py`, `strategy.py`, and `execution.py` and verify with unit tests.
+- [x] **[T2.5.11]** Create `packages/agent/src/sandbox/gates.py` (4-stage HITL approval gate: Plan -> Preview -> Approve -> Execute) and `storage/` persistence, verified with `test_gates.py`.
+- [x] **[T2.5.12]** Create `packages/agent/src/core/harness.py` (71KB Master ReAct `AgentHarness` with Zero-Trade Invariant & self-healing) and verify with `test_harness.py`.
 
 ---
 
-### ? Phase 6: FastAPI Backend Services & Real-Time SSE Streams (`apps/api`)
-- [ ] **[T2.6.1]** Create `apps/api/src/services/ai_copilot_service.py` orchestrating multi-turn agent sessions, SSE event streaming, and session resumption.
-- [ ] **[T2.6.2]** Create `apps/api/src/services/mt5_engine_service.py` coordinating MT5 strategy tester runs, tick data loading, and deal ingestion.
-- [ ] **[T2.6.3]** Create `apps/api/src/services/mt5_pool_service.py` managing worker terminal lifecycle, health checks, and process isolation.
-- [ ] **[T2.6.4]** Create `apps/api/src/services/data_service.py` and `strategy_registry.py` managing disk strategy files.
-- [ ] **[T2.6.5]** Create `apps/api/src/routers/agent.py` exposing:
-  - `/api/agent/stream`: Server-Sent Events (SSE) streaming reasoning, tool calls, and text tokens.
-  - `/api/agent/sessions`: Session lifecycle management.
-  - `/api/agent/transcribe`: Audio microphone transcription endpoint using `muse-voice-transcribe`.
-- [ ] **[T2.6.6]** Create `apps/api/src/routers/strategies.py` exposing workspace file CRUD, MQL5 compilation trigger, and file sync.
-- [ ] **[T2.6.7]** Create `apps/api/src/routers/backtests.py` triggering MT5 strategy tester simulations and returning performance metrics.
-- [ ] **[T2.6.8]** Create `apps/api/src/routers/workspace_files.py` supporting multi-file disk editing and AST linting.
-- [ ] **[T2.6.9]** Create `apps/api/src/routers/auth.py` providing JWT authentication and Google OAuth login.
-- [ ] **[T2.6.10]** Create `apps/api/src/routers/market_data.py` and `journal.py`.
-- [ ] **[T2.6.11]** Create distributed worker queue `apps/api/src/job_queue.py` and `apps/api/src/worker.py` (ARQ + Redis).
-- [ ] **[T2.6.12]** Create `apps/api/src/main.py` assembling all routers, CORS middleware, and lifecycle handlers.
+### ⚡ Phase 6: FastAPI Backend Services & Real-Time SSE Streams (`apps/api`)
+- [ ] **[T2.6.1]** Port & verify `apps/api/src/db/schema.py` (Pydantic v2 schemas) and `apps/api/src/main.py` (FastAPI root app, CORS, routers).
+- [ ] **[T2.6.2]** Wire & verify `apps/api/src/services/ai_copilot_service.py` with `apps/api/tests/test_ai_copilot.py`.
+- [ ] **[T2.6.3]** Wire & verify `apps/api/src/services/mt5_engine_service.py` and `mt5_pool_service.py` with `apps/api/tests/test_mt5_pool.py`.
+- [ ] **[T2.6.4]** Wire & verify `apps/api/src/services/data_service.py` and `strategy_registry.py` with `apps/api/tests/test_data_service.py`.
+- [ ] **[T2.6.5]** Wire & verify `apps/api/src/routers/agent.py` (SSE streaming, sessions, transcription) with `apps/api/tests/test_agent_api.py` and `apps/api/tests/test_agent_upload.py`.
+- [ ] **[T2.6.6]** Wire & verify `apps/api/src/routers/strategies.py` and `workspace_files.py` (Monaco disk file CRUD, AST checks, compile).
+- [ ] **[T2.6.7]** Wire & verify `apps/api/src/routers/backtests.py` and `community.py` (simulation trigger, metrics, leaderboard).
+- [ ] **[T2.6.8]** Wire & verify `apps/api/src/routers/auth.py` (JWT tokens, password hashing, Google OAuth) with `apps/api/tests/test_auth.py`.
+- [ ] **[T2.6.9]** Wire & verify `apps/api/src/routers/market_data.py`, `journal.py`, and `admin.py` with `apps/api/tests/test_journal_api.py` and `apps/api/tests/test_admin.py`.
+- [ ] **[T2.6.10]** Wire & verify distributed worker queue `apps/api/src/job_queue.py` and `worker.py` with `apps/api/tests/test_arq_worker.py` and `apps/api/tests/test_distributed_lock.py`.
+- [ ] **[T2.6.11]** Port & verify API safety suites (`apps/api/tests/test_cancellation_api.py`, `apps/api/tests/test_human_in_the_loop_api.py`, `apps/api/tests/test_sse_keepalive.py`, `apps/api/tests/test_reset_fresh_slate.py`).
+- [ ] **[T2.6.12]** Execute full FastAPI backend test suite (`apps/api/tests/test_api.py` and 16 integration suites) verifying exit code 0.
 
 ---
 
-### ?? Phase 7: Frontend Core Design System, Auth & Obsidian Shell (`apps/web`)
+### 🎨 Phase 7: Frontend Core Design System, Auth & Obsidian Shell (`apps/web`)
 - [ ] **[T2.7.1]** Create `apps/web/package.json`, `tsconfig.json`, `next.config.mjs`, `postcss.config.mjs`.
 - [ ] **[T2.7.2]** Create `apps/web/tailwind.config.ts` configuring Obsidian Dark palette (`#080B10` bg, `#0B0F16` cards, Cyan, Emerald, Amber, Crimson).
 - [ ] **[T2.7.3]** Create `apps/web/src/app/globals.css` with custom dark scrollbar, typography, and glow utilities.
@@ -141,7 +131,7 @@
 
 ---
 
-### ?? Phase 8: High-Density Interactive Charting Package (`@backtest-ai/chart` + Replay Workspace)
+### 📈 Phase 8: High-Density Interactive Charting Package (`@backtest-ai/chart` + Replay Workspace)
 - [ ] **[T2.8.1]** Create `packages/chart/package.json` for `@backtest-ai/chart`.
 - [ ] **[T2.8.2]** Create `packages/chart/src/types.ts` defining chart API contracts, themes, and marker contracts.
 - [ ] **[T2.8.3]** Create `packages/chart/src/theme.ts` configuring Obsidian Dark candlestick styling.
