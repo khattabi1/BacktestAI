@@ -1,4 +1,4 @@
-"""
+﻿"""
 Multi-provider LLM Adapter for DeepSeek Agent Harness (DSH).
 Supports OpenRouter for Development and Anthropic (Claude Opus 5.5) for Production.
 """
@@ -413,6 +413,7 @@ class OpenRouterAdapter(BaseLLMAdapter):
 
         thought_parser = StreamThoughtParser()
         tool_call_accumulators: Dict[int, Dict[str, Any]] = {}
+        announced_tools: set[str] = set()
         yielded_any_chunk = False
 
         max_retries = 3
@@ -488,6 +489,11 @@ class OpenRouterAdapter(BaseLLMAdapter):
                             tool_deltas = delta.get("tool_calls", [])
                             for td in tool_deltas:
                                 _accumulate_tool_delta(tool_call_accumulators, td)
+                                fn_name = td.get("function", {}).get("name")
+                                if fn_name and fn_name not in announced_tools:
+                                    announced_tools.add(fn_name)
+                                    clean_name = fn_name.replace("_", " ")
+                                    yield ModelChunk(thought_delta=f"\n> Preparing {clean_name}...\n")
 
                 # Successful stream completion
                 break
@@ -497,7 +503,7 @@ class OpenRouterAdapter(BaseLLMAdapter):
                     err_msg = f"AI connection interrupted mid-stream ({type(net_err).__name__})."
                     logger.error(f"[OpenAIAdapter Stream Dropped] {err_msg}")
                     yield ModelChunk(
-                        content_delta=f"\n\n⚠️ [{err_msg} Please continue or retry your prompt.]",
+                        content_delta=f"\n\nâš ï¸ [{err_msg} Please continue or retry your prompt.]",
                         is_finished=True,
                     )
                     return
@@ -683,7 +689,7 @@ class AgentRouterAdapter(BaseLLMAdapter):
                     err_msg = f"AI connection interrupted mid-stream ({type(net_err).__name__})."
                     logger.error(f"[AgentRouter Stream Dropped] {err_msg}")
                     yield ModelChunk(
-                        content_delta=f"\n\n⚠️ [{err_msg} Please continue or retry your prompt.]",
+                        content_delta=f"\n\nâš ï¸ [{err_msg} Please continue or retry your prompt.]",
                         is_finished=True,
                     )
                     return
@@ -878,7 +884,7 @@ class FreeInferenceAdapter(BaseLLMAdapter):
                     err_msg = f"FreeInference connection interrupted mid-stream ({type(net_err).__name__})."
                     logger.error(f"[FreeInference Stream Dropped] {err_msg}")
                     yield ModelChunk(
-                        content_delta=f"\n\n⚠️ [{err_msg} Please send a message to continue or re-run the step.]",
+                        content_delta=f"\n\nâš ï¸ [{err_msg} Please send a message to continue or re-run the step.]",
                         is_finished=True,
                     )
                     return
@@ -1076,18 +1082,19 @@ class GeminiAdapter(BaseLLMAdapter):
     """
 
     DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
-    DEFAULT_MODEL = "gemini-3.8-flash"
-    FALLBACK_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.7-flash"]
+    DEFAULT_MODEL = "gemini-3.5-flash-lite"
+    FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"]
 
     MODEL_MAP = {
-        "gemini-3.8-flash": "gemini-3.8-flash",
-        "gemini 3.8 flash": "gemini-3.8-flash",
-        "demini 3.8 flash": "gemini-3.8-flash",
-        "demini-3.8-flash": "gemini-3.8-flash",
+        "gemini-3.8-flash": "gemini-3.5-flash-lite",
+        "gemini 3.8 flash": "gemini-3.5-flash-lite",
+        "demini 3.8 flash": "gemini-3.5-flash-lite",
+        "demini-3.8-flash": "gemini-3.5-flash-lite",
         "gemini-3.5-flash-lite": "gemini-3.5-flash-lite",
         "gemini 3.5 flash lite": "gemini-3.5-flash-lite",
         "gemini 3.5 flash": "gemini-3.5-flash-lite",
-        "gemini-3.7-flash": "gemini-3.7-flash",
+        "gemini-3.7-flash": "gemini-3.5-flash-lite",
+        "gemini-2.5-flash": "gemini-3.5-flash-lite",
     }
 
     def __init__(
@@ -1104,12 +1111,10 @@ class GeminiAdapter(BaseLLMAdapter):
         norm_key = raw_model.lower()
         if norm_key in self.MODEL_MAP:
             self.model = self.MODEL_MAP[norm_key]
-        elif "3.8" in norm_key:
-            self.model = "gemini-3.8-flash"
-        elif "3.5" in norm_key:
+        elif "3.8" in norm_key or "3.5" in norm_key:
             self.model = "gemini-3.5-flash-lite"
         else:
-            self.model = raw_model
+            self.model = raw_model or self.DEFAULT_MODEL
         self.base_url = (base_url or os.environ.get("GEMINI_BASE_URL", self.DEFAULT_BASE_URL)).rstrip("/")
         self.think_level = (think_level or "medium").lower().strip()
         self.temperature = temperature
@@ -1207,7 +1212,8 @@ class GeminiAdapter(BaseLLMAdapter):
                 payload["tools"] = formatted_tools
 
             success = False
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            attempt_timeout = min(self.timeout, 15.0)
+            async with httpx.AsyncClient(timeout=attempt_timeout) as client:
                 try:
                     async with client.stream("POST", url, headers=headers, json=payload) as response:
                         if response.status_code == 503:
@@ -1299,11 +1305,9 @@ def create_llm_adapter(
     selected_think = (think_level or os.environ.get("THINK_LEVEL", "medium")).lower().strip()
 
     if selected_provider == "gemini":
-        target_model = model or os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
+        target_model = model or os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
         norm = target_model.lower().replace(" ", "-")
-        if "3.8" in norm:
-            target_model = "gemini-3.8-flash"
-        elif "3.5" in norm:
+        if "3.8" in norm or "3.5" in norm:
             target_model = "gemini-3.5-flash-lite"
         logger.info(f"Initializing Google Gemini Adapter with model: {target_model} (think: {selected_think})")
         return GeminiAdapter(model=target_model, think_level=selected_think)

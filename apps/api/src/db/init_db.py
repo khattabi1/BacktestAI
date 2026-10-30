@@ -5,7 +5,6 @@ Initializes SQLAlchemy 2.0 tables and seeds initial institutional quant demo use
 
 import hashlib
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -13,7 +12,7 @@ from sqlalchemy import create_engine, select, func, text
 from sqlalchemy.orm import Session
 
 from apps.api.src.db.connection import get_db_path, get_database_url
-from apps.api.src.db.models import Base, User, Workspace, Strategy, StrategyVersion
+from apps.api.src.db.models import Base, User, Workspace
 
 def hash_password(password: str) -> str:
     """Standard SHA-256 password hash for local SQLite database."""
@@ -24,10 +23,13 @@ def init_database(db_path: Optional[Path] = None) -> None:
     """
     Initialize database tables via SQLAlchemy 2.0 and seed baseline institutional data.
     """
-    target = db_path or get_db_path()
-    db_url = get_database_url(target)
-    connect_args = {"check_same_thread": False} if db_url.startswith("sqlite") else {}
-    sa_engine = create_engine(db_url, connect_args=connect_args)
+    if db_path is not None:
+        db_url = f"sqlite:///{db_path.as_posix()}"
+        connect_args = {"check_same_thread": False}
+        sa_engine = create_engine(db_url, connect_args=connect_args)
+    else:
+        from apps.api.src.db.connection import engine
+        sa_engine = engine
     
     # Create all tables defined in models.py
     Base.metadata.create_all(bind=sa_engine)
@@ -79,31 +81,32 @@ def init_database(db_path: Optional[Path] = None) -> None:
                 description="Primary quantitative research and replay workspace.",
                 is_default=1
             )
-            
-            # 3. Seed Built-In Strategies
+
+            # 3. Seed Default Built-in Strategies
+            from apps.api.src.db.models import Strategy
+            import json
             sma_strat = Strategy(
-                id="sma_cross_v1",
+                id="strat_sma_cross",
                 user_id=demo_user_id,
                 workspace_id=workspace_id,
                 name="SMA Crossover Strategy",
-                slug="sma-crossover",
-                description="Dual moving average crossover with trailing stop loss and dynamic take profit.",
-                language="python",
-                code="# Built-in SMA Crossover Strategy\n# Execution: Fast SMA crossing Slow SMA",
-                default_parameters='{"fast_period": 9, "slow_period": 21, "quantity": 1.0, "stop_loss_pct": 0.02, "take_profit_pct": 0.04}',
+                slug="sma-crossover-strategy",
+                description="Dual Simple Moving Average trend-following MQL5 Expert Advisor.",
+                language="mql5",
+                code="//+------------------------------------------------------------------+\n//| SMA Crossover Strategy                                           |\n//+------------------------------------------------------------------+\n#property strict\ninput int fast_period = 10;\ninput int slow_period = 50;\n",
+                default_parameters=json.dumps({"fast_period": 10, "slow_period": 50}),
                 is_built_in=1
             )
-            
             rsi_strat = Strategy(
-                id="rsi_reversal_v1",
+                id="strat_rsi_revert",
                 user_id=demo_user_id,
                 workspace_id=workspace_id,
                 name="RSI Mean Reversion",
                 slug="rsi-mean-reversion",
-                description="Relative Strength Index mean reversion targeting extreme overbought/oversold boundaries.",
-                language="python",
-                code="# Built-in RSI Mean Reversion Strategy",
-                default_parameters='{"period": 14, "oversold": 30.0, "overbought": 70.0, "quantity": 1.0, "stop_loss_pct": 0.015, "take_profit_pct": 0.03}',
+                description="Relative Strength Index dynamic mean-reversion MQL5 Expert Advisor.",
+                language="mql5",
+                code="//+------------------------------------------------------------------+\n//| RSI Mean Reversion Strategy                                      |\n//+------------------------------------------------------------------+\n#property strict\ninput int rsi_period = 14;\ninput double oversold = 30.0;\ninput double overbought = 70.0;\n",
+                default_parameters=json.dumps({"period": 14, "overbought": 70, "oversold": 30}),
                 is_built_in=1
             )
             

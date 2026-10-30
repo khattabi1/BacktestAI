@@ -45,18 +45,16 @@ from .types import (
     AgentState,
     EventType,
     Message,
+    ModelChunk,
     Role,
     StrategyInceptionState,
     ToolCall,
     ToolDefinition,
     ToolResult,
     TrajectoryEvent,
-    format_strategy_filename,
-    utc_now_iso,
     validate_strategy_name,
 )
 from .events import TrajectoryEventEmitter
-from .parser import StreamThoughtParser
 
 logger = logging.getLogger("backtest_ai.agent.harness")
 
@@ -64,21 +62,6 @@ logger = logging.getLogger("backtest_ai.agent.harness")
 class ToolHandler(Protocol):
     async def __call__(self, **kwargs: Any) -> Any:
         ...
-
-
-class ModelChunk:
-    """Represents a chunk received from the LLM stream."""
-    def __init__(
-        self,
-        thought_delta: str = "",
-        content_delta: str = "",
-        tool_calls: Optional[List[ToolCall]] = None,
-        is_finished: bool = False,
-    ) -> None:
-        self.thought_delta = thought_delta
-        self.content_delta = content_delta
-        self.tool_calls = tool_calls or []
-        self.is_finished = is_finished
 
 
 class LLMAdapterProtocol(Protocol):

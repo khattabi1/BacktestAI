@@ -1,6 +1,7 @@
 """
 Data access repository implementing CRUD operations across users, sessions,
 strategies, backtest runs, trades, and research journals.
+Unified PostgreSQL production architecture with backward-compatible SQLite fallback.
 """
 
 import json
@@ -10,12 +11,27 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 
-from apps.api.src.db.connection import get_db_connection, get_db_path
+from apps.api.src.db.connection import get_db_connection, get_db_path, engine, is_postgres
 from apps.api.src.db.init_db import hash_password
+from sqlalchemy import text
+
+
+def _row_to_dict(row: Any) -> Dict[str, Any]:
+    """Convert SQLAlchemy RowMapping, Row, or sqlite3.Row to a strictly typed Dict[str, Any]."""
+    if row is None:
+        return {}
+    if hasattr(row, "items"):
+        return {str(k): v for k, v in row.items()}
+    if hasattr(row, "_mapping"):
+        return {str(k): v for k, v in row._mapping.items()}
+    return {str(k): v for k, v in dict(row).items()}
+
 
 class DatabaseRepository:
     def __init__(self, db_path: Optional[Path] = None):
+        self.explicit_db_path = db_path is not None
         self.db_path = db_path or get_db_path()
+        self.use_postgres = is_postgres and not self.explicit_db_path
 
     # ---------------------------------------------------------
     # 1. Users & Authentication
@@ -30,6 +46,36 @@ class DatabaseRepository:
     ) -> Dict[str, Any]:
         user_id = str(uuid.uuid4())
         pw_hash = hash_password(password)
+        clean_email = email.lower().strip()
+
+        if self.use_postgres:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("""
+                        INSERT INTO users (id, email, password_hash, full_name, tier, role, is_active, created_at, updated_at)
+                        VALUES (:id, :email, :pw_hash, :full_name, :tier, :role, 1, NOW(), NOW())
+                    """),
+                    {
+                        "id": user_id,
+                        "email": clean_email,
+                        "pw_hash": pw_hash,
+                        "full_name": full_name,
+                        "tier": tier,
+                        "role": role,
+                    }
+                )
+                # Create a default workspace for new user
+                ws_id = str(uuid.uuid4())
+                conn.execute(
+                    text("""
+                        INSERT INTO workspaces (id, user_id, name, slug, description, is_default, created_at, updated_at)
+                        VALUES (:id, :user_id, 'Personal Lab', 'personal-lab', 'Default quantitative workspace', 1, NOW(), NOW())
+                    """),
+                    {"id": ws_id, "user_id": user_id}
+                )
+            user_data = self.get_user_by_id(user_id)
+            return user_data or {}
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -37,7 +83,7 @@ class DatabaseRepository:
                 INSERT INTO users (id, email, password_hash, full_name, tier, role, is_active, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now', 'utc'), datetime('now', 'utc'));
                 """,
-                (user_id, email.lower().strip(), pw_hash, full_name, tier, role)
+                (user_id, clean_email, pw_hash, full_name, tier, role)
             )
             # Create a default workspace for new user
             ws_id = str(uuid.uuid4())
@@ -49,21 +95,39 @@ class DatabaseRepository:
                 (ws_id, user_id)
             )
             conn.commit()
-            return self.get_user_by_id(user_id) # type: ignore
+            user_data = self.get_user_by_id(user_id)
+            return user_data or {}
 
     def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        clean_email = email.lower().strip()
+        if self.use_postgres:
+            with engine.connect() as conn:
+                row = conn.execute(
+                    text("SELECT * FROM users WHERE LOWER(email) = :email"),
+                    {"email": clean_email}
+                ).mappings().first()
+                return _row_to_dict(row) if row else None
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM users WHERE email = ?;", (email.lower().strip(),))
+            cursor.execute("SELECT * FROM users WHERE email = ?;", (clean_email,))
             row = cursor.fetchone()
-            return dict(row) if row else None
+            return _row_to_dict(row) if row else None
 
     def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
+        if self.use_postgres:
+            with engine.connect() as conn:
+                row = conn.execute(
+                    text("SELECT id, email, full_name, tier, role, is_active, created_at, updated_at FROM users WHERE id = :id"),
+                    {"id": user_id}
+                ).mappings().first()
+                return _row_to_dict(row) if row else None
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT id, email, full_name, tier, role, is_active, created_at, updated_at FROM users WHERE id = ?;", (user_id,))
             row = cursor.fetchone()
-            return dict(row) if row else None
+            return _row_to_dict(row) if row else None
 
     def verify_credentials(self, email: str, password: str) -> Optional[Dict[str, Any]]:
         user = self.get_user_by_email(email)
@@ -76,6 +140,14 @@ class DatabaseRepository:
 
     def update_user_password(self, user_id: str, new_password: str) -> bool:
         pw_hash = hash_password(new_password)
+        if self.use_postgres:
+            with engine.begin() as conn:
+                res = conn.execute(
+                    text("UPDATE users SET password_hash = :pw_hash, updated_at = NOW() WHERE id = :id"),
+                    {"pw_hash": pw_hash, "id": user_id}
+                )
+                return res.rowcount > 0
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("UPDATE users SET password_hash = ?, updated_at = datetime('now', 'utc') WHERE id = ?;", (pw_hash, user_id))
@@ -83,6 +155,26 @@ class DatabaseRepository:
             return cursor.rowcount > 0
 
     def list_all_users(self) -> List[Dict[str, Any]]:
+        if self.use_postgres:
+            with engine.connect() as conn:
+                rows = conn.execute(
+                    text("""
+                        SELECT 
+                            u.id, 
+                            u.email, 
+                            u.full_name, 
+                            u.tier, 
+                            u.role, 
+                            u.is_active, 
+                            u.created_at, 
+                            u.updated_at,
+                            (SELECT s.created_at FROM user_sessions s WHERE s.user_id = u.id ORDER BY s.created_at DESC LIMIT 1) as last_login
+                        FROM users u
+                        ORDER BY u.created_at DESC
+                    """)
+                ).mappings().all()
+                return [_row_to_dict(r) for r in rows]
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -101,9 +193,17 @@ class DatabaseRepository:
                 ORDER BY u.created_at DESC;
                 """
             )
-            return [dict(r) for r in cursor.fetchall()]
+            return [_row_to_dict(r) for r in cursor.fetchall()]
 
     def update_user_status(self, user_id: str, is_active: int) -> bool:
+        if self.use_postgres:
+            with engine.begin() as conn:
+                res = conn.execute(
+                    text("UPDATE users SET is_active = :status, updated_at = NOW() WHERE id = :id"),
+                    {"status": 1 if is_active else 0, "id": user_id}
+                )
+                return res.rowcount > 0
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -114,6 +214,24 @@ class DatabaseRepository:
             return cursor.rowcount > 0
 
     def get_admin_stats(self) -> Dict[str, Any]:
+        if self.use_postgres:
+            with engine.connect() as conn:
+                user_counts = conn.execute(
+                    text("SELECT COUNT(*) as total_users, SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_users FROM users")
+                ).mappings().first() or {"total_users": 0, "active_users": 0}
+                strat_count = conn.execute(text("SELECT COUNT(*) FROM strategies")).scalar() or 0
+                bt_count = conn.execute(text("SELECT COUNT(*) FROM backtest_runs")).scalar() or 0
+                sz = conn.execute(text("SELECT pg_database_size(current_database()) / (1024 * 1024.0)")).scalar() or 0.0
+                return {
+                    "total_users": user_counts.get("total_users", 0),
+                    "active_users": user_counts.get("active_users", 0),
+                    "total_strategies": strat_count,
+                    "total_backtest_runs": bt_count,
+                    "database_size_mb": round(float(sz), 2),
+                    "cluster_status": "OPTIMAL",
+                    "active_workers": 16,
+                }
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) as total_users, SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_users FROM users;")
@@ -140,21 +258,43 @@ class DatabaseRepository:
             }
 
     def list_workspaces(self, user_id: str) -> List[Dict[str, Any]]:
+        if self.use_postgres:
+            with engine.connect() as conn:
+                rows = conn.execute(
+                    text("SELECT * FROM workspaces WHERE user_id = :uid ORDER BY is_default DESC, created_at ASC"),
+                    {"uid": user_id}
+                ).mappings().all()
+                return [_row_to_dict(r) for r in rows]
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM workspaces WHERE user_id = ? ORDER BY is_default DESC, created_at ASC;", (user_id,))
-            return [dict(r) for r in cursor.fetchall()]
+            return [_row_to_dict(r) for r in cursor.fetchall()]
 
     def get_default_workspace(self, user_id: str) -> Optional[Dict[str, Any]]:
+        if self.use_postgres:
+            with engine.connect() as conn:
+                row = conn.execute(
+                    text("SELECT * FROM workspaces WHERE user_id = :uid AND is_default = 1 LIMIT 1"),
+                    {"uid": user_id}
+                ).mappings().first()
+                if row:
+                    return _row_to_dict(row)
+                fallback = conn.execute(
+                    text("SELECT * FROM workspaces WHERE user_id = :uid LIMIT 1"),
+                    {"uid": user_id}
+                ).mappings().first()
+                return _row_to_dict(fallback) if fallback else None
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM workspaces WHERE user_id = ? AND is_default = 1 LIMIT 1;", (user_id,))
             row = cursor.fetchone()
             if row:
-                return dict(row)
+                return _row_to_dict(row)
             cursor.execute("SELECT * FROM workspaces WHERE user_id = ? LIMIT 1;", (user_id,))
             fallback = cursor.fetchone()
-            return dict(fallback) if fallback else None
+            return _row_to_dict(fallback) if fallback else None
 
     def create_session(
         self,
@@ -167,6 +307,29 @@ class DatabaseRepository:
         token = f"si_sess_{uuid.uuid4().hex}"
         now = datetime.now(timezone.utc)
         expires_at = (now + timedelta(days=days_valid)).isoformat()
+
+        if self.use_postgres:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("""
+                        INSERT INTO user_sessions (id, user_id, token, expires_at, user_agent, ip_address, created_at)
+                        VALUES (:id, :user_id, :token, :expires_at, :user_agent, :ip_address, NOW())
+                    """),
+                    {
+                        "id": session_id,
+                        "user_id": user_id,
+                        "token": token,
+                        "expires_at": expires_at,
+                        "user_agent": user_agent,
+                        "ip_address": ip_address,
+                    }
+                )
+            return {
+                "id": session_id,
+                "user_id": user_id,
+                "token": token,
+                "expires_at": expires_at
+            }
         
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
@@ -186,6 +349,31 @@ class DatabaseRepository:
             }
 
     def get_session(self, token: str) -> Optional[Dict[str, Any]]:
+        if self.use_postgres:
+            with engine.connect() as conn:
+                row = conn.execute(
+                    text("""
+                        SELECT s.*, u.email, u.full_name, u.tier, u.role
+                        FROM user_sessions s
+                        JOIN users u ON s.user_id = u.id
+                        WHERE s.token = :token AND u.is_active = 1
+                    """),
+                    {"token": token}
+                ).mappings().first()
+                if not row:
+                    return None
+                sess: Dict[str, Any] = _row_to_dict(row)
+                expires_at = sess["expires_at"]
+                if isinstance(expires_at, str):
+                    expires_dt = datetime.fromisoformat(expires_at)
+                else:
+                    expires_dt = expires_at
+                if expires_dt.tzinfo is None:
+                    expires_dt = expires_dt.replace(tzinfo=timezone.utc)
+                if datetime.now(timezone.utc) > expires_dt:
+                    return None
+                return sess
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -200,14 +388,22 @@ class DatabaseRepository:
             row = cursor.fetchone()
             if not row:
                 return None
-            sess = dict(row)
+            sess_sqlite: Dict[str, Any] = _row_to_dict(row)
             # Check expiration
-            expires_at = datetime.fromisoformat(sess["expires_at"])
+            expires_at = datetime.fromisoformat(sess_sqlite["expires_at"])
             if datetime.now(timezone.utc) > expires_at:
                 return None
-            return sess
+            return sess_sqlite
 
     def delete_session(self, token: str) -> bool:
+        if self.use_postgres:
+            with engine.begin() as conn:
+                res = conn.execute(
+                    text("DELETE FROM user_sessions WHERE token = :token"),
+                    {"token": token}
+                )
+                return res.rowcount > 0
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM user_sessions WHERE token = ?;", (token,))
@@ -218,6 +414,19 @@ class DatabaseRepository:
     # 2. Strategies & Version Control
     # ---------------------------------------------------------
     def list_strategies(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        if self.use_postgres:
+            with engine.connect() as conn:
+                if user_id:
+                    rows = conn.execute(
+                        text("SELECT * FROM strategies WHERE user_id = :uid OR is_built_in = 1 ORDER BY is_built_in DESC, created_at DESC"),
+                        {"uid": user_id}
+                    ).mappings().all()
+                else:
+                    rows = conn.execute(
+                        text("SELECT * FROM strategies WHERE is_built_in = 1 ORDER BY is_built_in DESC, created_at DESC")
+                    ).mappings().all()
+                return [_row_to_dict(r) for r in rows]
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             if user_id:
@@ -226,20 +435,51 @@ class DatabaseRepository:
                     (user_id,)
                 )
             else:
-                cursor.execute("SELECT * FROM strategies ORDER BY is_built_in DESC, created_at DESC;")
-            return [dict(r) for r in cursor.fetchall()]
+                cursor.execute("SELECT * FROM strategies WHERE is_built_in = 1 ORDER BY is_built_in DESC, created_at DESC;")
+            return [_row_to_dict(r) for r in cursor.fetchall()]
 
     def get_strategy(self, strategy_id: str) -> Optional[Dict[str, Any]]:
+        if self.use_postgres:
+            with engine.connect() as conn:
+                row = conn.execute(
+                    text("SELECT * FROM strategies WHERE id = :id"),
+                    {"id": strategy_id}
+                ).mappings().first()
+                return _row_to_dict(row) if row else None
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM strategies WHERE id = ?;", (strategy_id,))
             row = cursor.fetchone()
-            return dict(row) if row else None
+            return _row_to_dict(row) if row else None
 
     def get_strategy_by_name(self, name: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         clean_name = name.strip()
         slug = clean_name.lower().replace(" ", "-").replace("_", "-")
         norm_name = clean_name.lower().replace(" ", "").replace("_", "").replace("-", "")
+
+        if self.use_postgres:
+            with engine.connect() as conn:
+                query = """
+                    SELECT * FROM strategies 
+                    WHERE id = :name 
+                       OR slug = :slug 
+                       OR LOWER(name) = :lower_name
+                       OR LOWER(REPLACE(REPLACE(name, ' ', ''), '_', '')) = :norm_name
+                """
+                params = {
+                    "name": clean_name,
+                    "slug": slug,
+                    "lower_name": clean_name.lower(),
+                    "norm_name": norm_name,
+                }
+                if user_id:
+                    query += " AND (user_id = :uid OR is_built_in = 1)"
+                    params["uid"] = user_id
+                query += " ORDER BY is_built_in ASC, updated_at DESC LIMIT 1"
+
+                row = conn.execute(text(query), params).mappings().first()
+                return _row_to_dict(row) if row else None
 
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
@@ -250,15 +490,15 @@ class DatabaseRepository:
                    OR LOWER(name) = ?
                    OR LOWER(REPLACE(REPLACE(name, ' ', ''), '_', '')) = ?
             """
-            params = [clean_name, slug, clean_name.lower(), norm_name]
+            params_list = [clean_name, slug, clean_name.lower(), norm_name]
             if user_id:
                 query += " AND (user_id = ? OR is_built_in = 1)"
-                params.append(user_id)
+                params_list.append(user_id)
             query += " ORDER BY is_built_in ASC, updated_at DESC LIMIT 1;"
 
-            cursor.execute(query, tuple(params))
+            cursor.execute(query, tuple(params_list))
             row = cursor.fetchone()
-            return dict(row) if row else None
+            return _row_to_dict(row) if row else None
 
     def create_strategy(
         self,
@@ -273,10 +513,64 @@ class DatabaseRepository:
         strat_id = str(uuid.uuid4())
         slug = name.lower().replace(" ", "-")
         params_json = json.dumps(default_parameters or {})
+
+        if self.use_postgres:
+            with engine.begin() as conn:
+                valid_user_id = None
+                if user_id:
+                    valid_user_id = conn.execute(
+                        text("SELECT id FROM users WHERE id = :uid"), {"uid": user_id}
+                    ).scalar()
+                if not valid_user_id:
+                    valid_user_id = conn.execute(
+                        text("SELECT id FROM users ORDER BY created_at ASC LIMIT 1")
+                    ).scalar()
+
+                valid_ws_id = None
+                if workspace_id:
+                    valid_ws_id = conn.execute(
+                        text("SELECT id FROM workspaces WHERE id = :wsid"), {"wsid": workspace_id}
+                    ).scalar()
+                if not valid_ws_id and valid_user_id:
+                    valid_ws_id = conn.execute(
+                        text("SELECT id FROM workspaces WHERE user_id = :uid ORDER BY is_default DESC LIMIT 1"),
+                        {"uid": valid_user_id}
+                    ).scalar()
+
+                conn.execute(
+                    text("""
+                        INSERT INTO strategies (id, user_id, workspace_id, name, slug, description, language, code, default_parameters, is_built_in, created_at, updated_at)
+                        VALUES (:id, :uid, :wsid, :name, :slug, :desc, :lang, :code, :params, 0, TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+                    """),
+                    {
+                        "id": strat_id,
+                        "uid": valid_user_id,
+                        "wsid": valid_ws_id,
+                        "name": name,
+                        "slug": slug,
+                        "desc": description,
+                        "lang": language,
+                        "code": code,
+                        "params": params_json,
+                    }
+                )
+                conn.execute(
+                    text("""
+                        INSERT INTO strategy_versions (id, strategy_id, version_num, code, parameters, commit_message, created_at)
+                        VALUES (:id, :strat_id, 1, :code, :params, 'Initial commit', TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+                    """),
+                    {
+                        "id": str(uuid.uuid4()),
+                        "strat_id": strat_id,
+                        "code": code,
+                        "params": params_json,
+                    }
+                )
+            created = self.get_strategy(strat_id)
+            return created or {}
         
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
-            # Resolve valid user_id to satisfy foreign key constraint
             valid_user_id = None
             if user_id:
                 cursor.execute("SELECT id FROM users WHERE id = ?;", (user_id,))
@@ -289,7 +583,6 @@ class DatabaseRepository:
                 if row:
                     valid_user_id = row[0]
 
-            # Resolve valid workspace_id to satisfy foreign key constraint
             valid_ws_id = None
             if workspace_id:
                 cursor.execute("SELECT id FROM workspaces WHERE id = ?;", (workspace_id,))
@@ -309,7 +602,6 @@ class DatabaseRepository:
                 """,
                 (strat_id, valid_user_id, valid_ws_id, name, slug, description, language, code, params_json)
             )
-            # Create initial version 1
             cursor.execute(
                 """
                 INSERT INTO strategy_versions (id, strategy_id, version_num, code, parameters, commit_message, created_at)
@@ -318,7 +610,8 @@ class DatabaseRepository:
                 (str(uuid.uuid4()), strat_id, code, params_json)
             )
             conn.commit()
-            return self.get_strategy(strat_id) # type: ignore
+            created = self.get_strategy(strat_id)
+            return created or {}
 
     def update_strategy(
         self,
@@ -340,6 +633,40 @@ class DatabaseRepository:
             json.loads(existing.get("default_parameters") or "{}") if isinstance(existing.get("default_parameters"), str) else (existing.get("default_parameters") or {})
         )
         params_json = json.dumps(new_params)
+
+        if self.use_postgres:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("""
+                        UPDATE strategies 
+                        SET name = :name, description = :desc, code = :code, default_parameters = :params, updated_at = TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+                        WHERE id = :id
+                    """),
+                    {"name": new_name, "desc": new_desc, "code": new_code, "params": params_json, "id": strategy_id}
+                )
+                if create_version and code is not None and code != existing["code"]:
+                    next_version = (conn.execute(
+                        text("SELECT COALESCE(MAX(version_num), 0) + 1 FROM strategy_versions WHERE strategy_id = :sid"),
+                        {"sid": strategy_id}
+                    ).scalar() or 1)
+                    conn.execute(
+                        text("""
+                            INSERT INTO strategy_versions (id, strategy_id, version_num, code, parameters, commit_message, created_at)
+                            VALUES (:id, :sid, :ver, :code, :params, 'Agent revision', TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+                        """),
+                        {"id": str(uuid.uuid4()), "sid": strategy_id, "ver": next_version, "code": new_code, "params": params_json}
+                    )
+                elif not create_version and code is not None:
+                    latest_ver_id = conn.execute(
+                        text("SELECT id FROM strategy_versions WHERE strategy_id = :sid ORDER BY version_num DESC LIMIT 1"),
+                        {"sid": strategy_id}
+                    ).scalar()
+                    if latest_ver_id:
+                        conn.execute(
+                            text("UPDATE strategy_versions SET code = :code, parameters = :params WHERE id = :id"),
+                            {"code": new_code, "params": params_json, "id": latest_ver_id}
+                        )
+            return self.get_strategy(strategy_id)
 
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
@@ -392,7 +719,7 @@ class DatabaseRepository:
         version_num: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
-        Idempotent strategy creation/update with automatic SQLite versioning.
+        Idempotent strategy creation/update with automatic versioning.
         Creates version 1 on initial insert, or appends to strategy_versions if code changes or bump_version is True.
         """
         existing = self.get_strategy_by_name(name, user_id=user_id)
@@ -423,6 +750,80 @@ class DatabaseRepository:
         merged_params = default_parameters if default_parameters is not None else existing_params_dict
         params_json = json.dumps(merged_params)
 
+        if self.use_postgres:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("""
+                        UPDATE strategies
+                        SET name = :name, description = :desc, code = :code, default_parameters = :params, updated_at = TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+                        WHERE id = :id
+                    """),
+                    {
+                        "name": name,
+                        "desc": description or existing.get("description", ""),
+                        "code": code,
+                        "params": params_json,
+                        "id": strat_id
+                    }
+                )
+
+                max_v = conn.execute(
+                    text("SELECT COALESCE(MAX(version_num), 0) FROM strategy_versions WHERE strategy_id = :sid"),
+                    {"sid": strat_id}
+                ).scalar() or 0
+
+                if bump_version or max_v == 0:
+                    target_version = (version_num if version_num and version_num > max_v else max_v + 1) if max_v > 0 else (version_num or 1)
+                    conn.execute(
+                        text("""
+                            INSERT INTO strategy_versions (id, strategy_id, version_num, code, parameters, commit_message, created_at)
+                            VALUES (:id, :sid, :ver, :code, :params, :msg, TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+                        """),
+                        {
+                            "id": str(uuid.uuid4()),
+                            "sid": strat_id,
+                            "ver": target_version,
+                            "code": code,
+                            "params": params_json,
+                            "msg": commit_message or f"Version {target_version}"
+                        }
+                    )
+                else:
+                    target_version = version_num if version_num is not None else max_v
+                    existing_ver_id = conn.execute(
+                        text("SELECT id FROM strategy_versions WHERE strategy_id = :sid AND version_num = :ver"),
+                        {"sid": strat_id, "ver": target_version}
+                    ).scalar()
+                    if existing_ver_id:
+                        conn.execute(
+                            text("""
+                                UPDATE strategy_versions
+                                SET code = :code, parameters = :params, commit_message = COALESCE(:msg, commit_message)
+                                WHERE id = :id
+                            """),
+                            {"code": code, "params": params_json, "msg": commit_message, "id": existing_ver_id}
+                        )
+                    else:
+                        conn.execute(
+                            text("""
+                                INSERT INTO strategy_versions (id, strategy_id, version_num, code, parameters, commit_message, created_at)
+                                VALUES (:id, :sid, :ver, :code, :params, :msg, TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+                            """),
+                            {
+                                "id": str(uuid.uuid4()),
+                                "sid": strat_id,
+                                "ver": target_version,
+                                "code": code,
+                                "params": params_json,
+                                "msg": commit_message or f"Version {target_version}"
+                            }
+                        )
+            res = self.get_strategy(strat_id)
+            if res:
+                res["current_version"] = target_version
+                res["is_new"] = False
+            return res or existing
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -434,7 +835,6 @@ class DatabaseRepository:
                 (name, description or existing.get("description", ""), code, params_json, strat_id)
             )
 
-            # Determine existing maximum version
             cursor.execute(
                 "SELECT COALESCE(MAX(version_num), 0) FROM strategy_versions WHERE strategy_id = ?;",
                 (strat_id,)
@@ -452,14 +852,12 @@ class DatabaseRepository:
                 )
             else:
                 target_version = version_num if version_num is not None else max_v
-                # Check if this specific version already exists in strategy_versions
                 cursor.execute(
                     "SELECT id FROM strategy_versions WHERE strategy_id = ? AND version_num = ?;",
                     (strat_id, target_version)
                 )
                 existing_ver_row = cursor.fetchone()
                 if existing_ver_row:
-                    # Update existing version record in-place — never inflate version sequence!
                     cursor.execute(
                         """
                         UPDATE strategy_versions
@@ -487,6 +885,20 @@ class DatabaseRepository:
 
     def get_strategy_versions(self, strategy_id: str) -> List[Dict[str, Any]]:
         """Retrieve all historical snapshots for a strategy ordered by version descending."""
+        if self.use_postgres:
+            with engine.connect() as conn:
+                rows = conn.execute(
+                    text("""
+                        SELECT id, strategy_id, version_num, commit_message, created_at,
+                               LENGTH(code) as code_length
+                        FROM strategy_versions
+                        WHERE strategy_id = :sid
+                        ORDER BY version_num DESC
+                    """),
+                    {"sid": strategy_id}
+                ).mappings().all()
+                return [_row_to_dict(r) for r in rows]
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -499,10 +911,18 @@ class DatabaseRepository:
                 """,
                 (strategy_id,)
             )
-            return [dict(r) for r in cursor.fetchall()]
+            return [_row_to_dict(r) for r in cursor.fetchall()]
 
     def get_strategy_version_code(self, strategy_id: str, version_num: int) -> Optional[Dict[str, Any]]:
         """Retrieve the exact code and parameter snapshot for a specific version."""
+        if self.use_postgres:
+            with engine.connect() as conn:
+                row = conn.execute(
+                    text("SELECT * FROM strategy_versions WHERE strategy_id = :sid AND version_num = :ver"),
+                    {"sid": strategy_id, "ver": version_num}
+                ).mappings().first()
+                return _row_to_dict(row) if row else None
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -510,7 +930,7 @@ class DatabaseRepository:
                 (strategy_id, version_num)
             )
             row = cursor.fetchone()
-            return dict(row) if row else None
+            return _row_to_dict(row) if row else None
 
     def revert_strategy_to_version(self, strategy_id: str, version_num: int) -> Optional[Dict[str, Any]]:
         """Reverts the active strategy code to a previous version without creating a new milestone."""
@@ -528,6 +948,12 @@ class DatabaseRepository:
         return res
 
     def delete_strategy(self, strategy_id: str) -> bool:
+        if self.use_postgres:
+            with engine.begin() as conn:
+                conn.execute(text("DELETE FROM strategy_versions WHERE strategy_id = :sid"), {"sid": strategy_id})
+                res = conn.execute(text("DELETE FROM strategies WHERE id = :sid"), {"sid": strategy_id})
+                return res.rowcount > 0
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM strategy_versions WHERE strategy_id = ?;", (strategy_id,))
@@ -535,36 +961,97 @@ class DatabaseRepository:
             conn.commit()
             return cursor.rowcount > 0
 
-    def delete_all_strategies(self) -> int:
+    def delete_all_strategies(self, user_id: Optional[str] = None) -> int:
+        if self.use_postgres:
+            with engine.begin() as conn:
+                if user_id:
+                    conn.execute(
+                        text("DELETE FROM strategy_versions WHERE strategy_id IN (SELECT id FROM strategies WHERE user_id = :uid AND is_built_in = 0)"),
+                        {"uid": user_id}
+                    )
+                    res = conn.execute(
+                        text("DELETE FROM strategies WHERE user_id = :uid AND is_built_in = 0"),
+                        {"uid": user_id}
+                    )
+                else:
+                    conn.execute(text("DELETE FROM strategy_versions"))
+                    res = conn.execute(text("DELETE FROM strategies WHERE is_built_in = 0"))
+                return res.rowcount
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM strategy_versions;")
-            cursor.execute("DELETE FROM strategies;")
+            if user_id:
+                cursor.execute(
+                    "DELETE FROM strategy_versions WHERE strategy_id IN (SELECT id FROM strategies WHERE user_id = ? AND is_built_in = 0);"
+                )
+                cursor.execute("DELETE FROM strategies WHERE user_id = ? AND is_built_in = 0;", (user_id,))
+            else:
+                cursor.execute("DELETE FROM strategy_versions;")
+                cursor.execute("DELETE FROM strategies WHERE is_built_in = 0;")
             count = cursor.rowcount
             conn.commit()
             return count
 
-    def delete_all_backtest_runs(self) -> int:
+    # ---------------------------------------------------------
+    # 3. Persistent Backtest Runs & Ledgers
+    # ---------------------------------------------------------
+    def delete_all_backtest_runs(self, user_id: Optional[str] = None) -> int:
+        if self.use_postgres:
+            with engine.begin() as conn:
+                if user_id:
+                    conn.execute(
+                        text("DELETE FROM trades WHERE backtest_run_id IN (SELECT id FROM backtest_runs WHERE user_id = :uid)"),
+                        {"uid": user_id}
+                    )
+                    res = conn.execute(
+                        text("DELETE FROM backtest_runs WHERE user_id = :uid"),
+                        {"uid": user_id}
+                    )
+                    conn.execute(
+                        text("DELETE FROM backtest_sessions WHERE user_id = :uid"),
+                        {"uid": user_id}
+                    )
+                    return res.rowcount
+                else:
+                    return 0
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM trades;")
-            cursor.execute("DELETE FROM backtest_runs;")
-            cursor.execute("DELETE FROM backtest_sessions;")
-            count = cursor.rowcount
+            if user_id:
+                cursor.execute("DELETE FROM trades WHERE backtest_run_id IN (SELECT id FROM backtest_runs WHERE user_id = ?);", (user_id,))
+                cursor.execute("DELETE FROM backtest_runs WHERE user_id = ?;", (user_id,))
+                cursor.execute("DELETE FROM backtest_sessions WHERE user_id = ?;", (user_id,))
+                count = cursor.rowcount
+            else:
+                return 0
             conn.commit()
             return count
 
-    def delete_backtest_run(self, run_id: str) -> bool:
+    def delete_backtest_run(self, run_id: str, user_id: Optional[str] = None) -> bool:
+        if self.use_postgres:
+            with engine.begin() as conn:
+                if user_id:
+                    chk = conn.execute(
+                        text("SELECT id FROM backtest_runs WHERE id = :rid AND user_id = :uid"),
+                        {"rid": run_id, "uid": user_id}
+                    ).scalar()
+                    if not chk:
+                        return False
+                conn.execute(text("DELETE FROM trades WHERE backtest_run_id = :rid"), {"rid": run_id})
+                res = conn.execute(text("DELETE FROM backtest_runs WHERE id = :rid"), {"rid": run_id})
+                return res.rowcount > 0
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
+            if user_id:
+                cursor.execute("SELECT id FROM backtest_runs WHERE id = ? AND user_id = ?;", (run_id, user_id))
+                if not cursor.fetchone():
+                    return False
             cursor.execute("DELETE FROM trades WHERE backtest_run_id = ?;", (run_id,))
             cursor.execute("DELETE FROM backtest_runs WHERE id = ?;", (run_id,))
             conn.commit()
             return cursor.rowcount > 0
 
-    # ---------------------------------------------------------
-    # 3. Persistent Backtest Runs & Ledgers
-    # ---------------------------------------------------------
     def save_backtest_run(
         self,
         run_id: str,
@@ -579,10 +1066,166 @@ class DatabaseRepository:
         execution_time_ms: float = 0.0,
         version_num: int = 1,
     ) -> None:
+        init_cap = float(config.get("initial_capital", 10000.0))
+        final_eq = float(metrics.get("equity", init_cap))
+        total_tr = int(metrics.get("total_trades", len(trades or [])))
+        run_status = "completed" if total_tr > 0 else "failed"
+        win_rate = float(metrics.get("win_rate", 0.0))
+        sharpe = float(metrics.get("sharpe_ratio", 0.0))
+        sortino = float(metrics.get("sortino_ratio", 0.0))
+        max_dd = float(metrics.get("max_drawdown_pct", 0.0))
+        prof_fac = float(metrics.get("profit_factor", 0.0))
+        eff_version = int(config.get("version_num") or version_num or 1)
+
+        def _clean_sim_date(val: Any) -> Optional[str]:
+            if not val:
+                return None
+            s = str(val).strip().replace(".", "-")
+            if "T" in s:
+                s = s.split("T")[0]
+            elif " " in s:
+                s = s.split(" ")[0]
+            return s if len(s) >= 4 else None
+
+        sim_start = _clean_sim_date(
+            config.get("start_date") or config.get("from_date") or config.get("startDate")
+        )
+        sim_end = _clean_sim_date(
+            config.get("end_date") or config.get("to_date") or config.get("endDate")
+        )
+
+        if (not sim_start or not sim_end) and trades:
+            valid_trades = [t for t in trades if t.get("entry_time")]
+            if valid_trades:
+                sorted_tr = sorted(valid_trades, key=lambda x: str(x.get("entry_time", "")))
+                if not sim_start and sorted_tr:
+                    sim_start = _clean_sim_date(sorted_tr[0].get("entry_time"))
+                if not sim_end and sorted_tr:
+                    last_t = sorted_tr[-1]
+                    sim_end = _clean_sim_date(last_t.get("exit_time") or last_t.get("entry_time"))
+
+        if sim_start:
+            config["start_date"] = sim_start
+            if not config.get("from_date"):
+                config["from_date"] = sim_start
+        if sim_end:
+            config["end_date"] = sim_end
+            if not config.get("to_date"):
+                config["to_date"] = sim_end
+
+        if self.use_postgres:
+            with engine.begin() as conn:
+                valid_user_id = None
+                if user_id:
+                    valid_user_id = conn.execute(
+                        text("SELECT id FROM users WHERE id = :uid"), {"uid": user_id}
+                    ).scalar()
+                valid_strategy_id = None
+                if strategy_id:
+                    valid_strategy_id = conn.execute(
+                        text("SELECT id FROM strategies WHERE id = :sid"), {"sid": strategy_id}
+                    ).scalar()
+
+                conn.execute(
+                    text("""
+                        INSERT INTO backtest_runs (
+                            id, user_id, strategy_id, strategy_name, version_num, symbol, timeframe,
+                            start_date, end_date, initial_capital, final_equity, total_trades,
+                            win_rate, sharpe_ratio, sortino_ratio, max_drawdown_pct, profit_factor,
+                            execution_time_ms, status, config_json, metrics_json, created_at
+                        )
+                        VALUES (
+                            :id, :user_id, :strategy_id, :strategy_name, :version_num, :symbol, :timeframe,
+                            :start_date, :end_date, :initial_capital, :final_equity, :total_trades,
+                            :win_rate, :sharpe_ratio, :sortino_ratio, :max_drawdown_pct, :profit_factor,
+                            :execution_time_ms, :status, :config_json, :metrics_json, TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+                        )
+                        ON CONFLICT (id) DO UPDATE SET
+                            final_equity = EXCLUDED.final_equity,
+                            total_trades = EXCLUDED.total_trades,
+                            win_rate = EXCLUDED.win_rate,
+                            sharpe_ratio = EXCLUDED.sharpe_ratio,
+                            sortino_ratio = EXCLUDED.sortino_ratio,
+                            max_drawdown_pct = EXCLUDED.max_drawdown_pct,
+                            profit_factor = EXCLUDED.profit_factor,
+                            execution_time_ms = EXCLUDED.execution_time_ms,
+                            status = EXCLUDED.status,
+                            config_json = EXCLUDED.config_json,
+                            metrics_json = EXCLUDED.metrics_json
+                    """),
+                    {
+                        "id": run_id,
+                        "user_id": valid_user_id,
+                        "strategy_id": valid_strategy_id,
+                        "strategy_name": strategy_name,
+                        "version_num": eff_version,
+                        "symbol": symbol,
+                        "timeframe": timeframe,
+                        "start_date": sim_start,
+                        "end_date": sim_end,
+                        "initial_capital": init_cap,
+                        "final_equity": final_eq,
+                        "total_trades": total_tr,
+                        "win_rate": win_rate,
+                        "sharpe_ratio": sharpe,
+                        "sortino_ratio": sortino,
+                        "max_drawdown_pct": max_dd,
+                        "profit_factor": prof_fac,
+                        "execution_time_ms": execution_time_ms,
+                        "status": run_status,
+                        "config_json": json.dumps(config),
+                        "metrics_json": json.dumps(metrics),
+                    }
+                )
+
+                if trades:
+                    conn.execute(text("DELETE FROM trades WHERE backtest_run_id = :rid"), {"rid": run_id})
+                    for t in trades:
+                        side_str = str(t.get("side", "BUY")).upper()
+                        pnl_pct_val = t.get("pnl_percent") if t.get("pnl_percent") is not None else t.get("pnl_pct", 0.0)
+                        fee_val = t.get("commission") if t.get("commission") is not None else t.get("fee", 0.0)
+                        swap_val = float(t.get("swap") or 0.0)
+                        sl_val = float(t.get("stop_loss") or t.get("initial_sl") or t.get("sl") or 0.0) or None
+                        tp_val = float(t.get("take_profit") or t.get("initial_tp") or t.get("tp") or 0.0) or None
+
+                        conn.execute(
+                            text("""
+                                INSERT INTO trades (
+                                    id, backtest_run_id, trade_id, symbol, side,
+                                    entry_time, entry_price, exit_time, exit_price,
+                                    quantity, pnl, pnl_pct, fee, swap, stop_loss, take_profit, exit_reason
+                                )
+                                VALUES (
+                                    :id, :backtest_run_id, :trade_id, :symbol, :side,
+                                    :entry_time, :entry_price, :exit_time, :exit_price,
+                                    :quantity, :pnl, :pnl_pct, :fee, :swap, :stop_loss, :take_profit, :exit_reason
+                                )
+                            """),
+                            {
+                                "id": str(uuid.uuid4()),
+                                "backtest_run_id": run_id,
+                                "trade_id": str(t.get("trade_id", t.get("id", uuid.uuid4().hex[:8]))),
+                                "symbol": symbol,
+                                "side": side_str,
+                                "entry_time": str(t.get("entry_time", "")),
+                                "entry_price": float(t.get("entry_price") or 0.0),
+                                "exit_time": str(t.get("exit_time", "")),
+                                "exit_price": float(t.get("exit_price") or 0.0),
+                                "quantity": float(t.get("quantity") or 1.0),
+                                "pnl": float(t.get("pnl") or 0.0),
+                                "pnl_pct": float(pnl_pct_val or 0.0),
+                                "fee": float(fee_val or 0.0),
+                                "swap": float(swap_val),
+                                "stop_loss": sl_val,
+                                "take_profit": tp_val,
+                                "exit_reason": str(t.get("exit_reason", "STOP_TARGET")),
+                            }
+                        )
+            return
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             
-            # Resolve foreign keys safely to avoid constraint failures
             valid_user_id = None
             if user_id:
                 cursor.execute("SELECT id FROM users WHERE id = ?;", (user_id,))
@@ -597,54 +1240,6 @@ class DatabaseRepository:
                 if r_strat:
                     valid_strategy_id = r_strat[0]
 
-            init_cap = float(config.get("initial_capital", 10000.0))
-            final_eq = float(metrics.get("equity", init_cap))
-            total_tr = int(metrics.get("total_trades", len(trades or [])))
-            run_status = "completed" if total_tr > 0 else "failed"
-            win_rate = float(metrics.get("win_rate", 0.0))
-            sharpe = float(metrics.get("sharpe_ratio", 0.0))
-            sortino = float(metrics.get("sortino_ratio", 0.0))
-            max_dd = float(metrics.get("max_drawdown_pct", 0.0))
-            prof_fac = float(metrics.get("profit_factor", 0.0))
-            eff_version = int(config.get("version_num") or version_num or 1)
-
-            def _clean_sim_date(val: Any) -> Optional[str]:
-                if not val:
-                    return None
-                s = str(val).strip().replace(".", "-")
-                if "T" in s:
-                    s = s.split("T")[0]
-                elif " " in s:
-                    s = s.split(" ")[0]
-                return s if len(s) >= 4 else None
-
-            sim_start = _clean_sim_date(
-                config.get("start_date") or config.get("from_date") or config.get("startDate")
-            )
-            sim_end = _clean_sim_date(
-                config.get("end_date") or config.get("to_date") or config.get("endDate")
-            )
-
-            if (not sim_start or not sim_end) and trades:
-                valid_trades = [t for t in trades if t.get("entry_time")]
-                if valid_trades:
-                    sorted_tr = sorted(valid_trades, key=lambda x: str(x.get("entry_time", "")))
-                    if not sim_start and sorted_tr:
-                        sim_start = _clean_sim_date(sorted_tr[0].get("entry_time"))
-                    if not sim_end and sorted_tr:
-                        last_t = sorted_tr[-1]
-                        sim_end = _clean_sim_date(last_t.get("exit_time") or last_t.get("entry_time"))
-
-            # Ensure both start_date/end_date and from_date/to_date are in config
-            if sim_start:
-                config["start_date"] = sim_start
-                if not config.get("from_date"):
-                    config["from_date"] = sim_start
-            if sim_end:
-                config["end_date"] = sim_end
-                if not config.get("to_date"):
-                    config["to_date"] = sim_end
-            
             cursor.execute(
                 """
                 INSERT OR REPLACE INTO backtest_runs (
@@ -680,7 +1275,6 @@ class DatabaseRepository:
                 )
             )
             
-            # Save associated trade ledger
             if trades:
                 for t in trades:
                     side_str = str(t.get("side", "BUY")).upper()
@@ -785,22 +1379,62 @@ class DatabaseRepository:
         return d
 
     def get_backtest_run(self, run_id: str) -> Optional[Dict[str, Any]]:
+        if self.use_postgres:
+            with engine.connect() as conn:
+                row = conn.execute(
+                    text("SELECT * FROM backtest_runs WHERE id = :id"),
+                    {"id": run_id}
+                ).mappings().first()
+                if not row:
+                    return None
+                run_dict: Dict[str, Any] = _row_to_dict(row)
+                run_dict["config"] = json.loads(run_dict.get("config_json") or "{}")
+                run_dict["metrics"] = json.loads(run_dict.get("metrics_json") or "{}")
+                trades_rows = conn.execute(
+                    text("SELECT * FROM trades WHERE backtest_run_id = :id ORDER BY entry_time ASC"),
+                    {"id": run_id}
+                ).mappings().all()
+                run_dict["trades"] = [_row_to_dict(t) for t in trades_rows]
+                return self._normalize_run_dict(run_dict)
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM backtest_runs WHERE id = ?;", (run_id,))
             row = cursor.fetchone()
             if not row:
                 return None
-            run_dict = dict(row)
+            run_dict = _row_to_dict(row)
             run_dict["config"] = json.loads(run_dict["config_json"])
             run_dict["metrics"] = json.loads(run_dict["metrics_json"])
             
-            # Fetch trades
             cursor.execute("SELECT * FROM trades WHERE backtest_run_id = ? ORDER BY entry_time ASC;", (run_id,))
-            run_dict["trades"] = [dict(t) for t in cursor.fetchall()]
+            run_dict["trades"] = [_row_to_dict(t) for t in cursor.fetchall()]
             return self._normalize_run_dict(run_dict)
 
     def list_backtest_runs(self, user_id: Optional[str] = None, limit: int = 50, min_trades: int = 0) -> List[Dict[str, Any]]:
+        if self.use_postgres:
+            with engine.connect() as conn:
+                if user_id:
+                    if min_trades > 0:
+                        rows = conn.execute(
+                            text("SELECT * FROM backtest_runs WHERE user_id = :uid AND total_trades >= :min_t ORDER BY created_at DESC LIMIT :lim"),
+                            {"uid": user_id, "min_t": min_trades, "lim": limit}
+                        ).mappings().all()
+                    else:
+                        rows = conn.execute(
+                            text("SELECT * FROM backtest_runs WHERE user_id = :uid ORDER BY created_at DESC LIMIT :lim"),
+                            {"uid": user_id, "lim": limit}
+                        ).mappings().all()
+                else:
+                    return []
+                results: List[Dict[str, Any]] = []
+                for r in rows:
+                    d: Dict[str, Any] = _row_to_dict(r)
+                    d["config"] = json.loads(d.get("config_json") or "{}")
+                    d["metrics"] = json.loads(d.get("metrics_json") or "{}")
+                    results.append(self._normalize_run_dict(d))
+                return results
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             if user_id:
@@ -815,20 +1449,11 @@ class DatabaseRepository:
                         (user_id, limit)
                     )
             else:
-                if min_trades > 0:
-                    cursor.execute(
-                        "SELECT * FROM backtest_runs WHERE total_trades >= ? ORDER BY created_at DESC LIMIT ?;",
-                        (min_trades, limit)
-                    )
-                else:
-                    cursor.execute(
-                        "SELECT * FROM backtest_runs ORDER BY created_at DESC LIMIT ?;",
-                        (limit,)
-                    )
+                return []
             rows = cursor.fetchall()
             results = []
             for r in rows:
-                d = dict(r)
+                d = _row_to_dict(r)
                 d["config"] = json.loads(d["config_json"])
                 d["metrics"] = json.loads(d["metrics_json"])
                 results.append(self._normalize_run_dict(d))
@@ -848,6 +1473,38 @@ class DatabaseRepository:
         current_bar_index: int = 0,
         state_json: Optional[str] = None
     ) -> Dict[str, Any]:
+        if self.use_postgres:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("""
+                        INSERT INTO backtest_sessions (
+                            id, user_id, name, symbol, timeframe, initial_capital, leverage,
+                            current_bar_index, status, state_json, created_at, updated_at
+                        )
+                        VALUES (
+                            :id, :user_id, :name, :symbol, :timeframe, :initial_capital, 1.0,
+                            :current_bar_index, 'active', :state_json, TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+                        )
+                        ON CONFLICT (id) DO UPDATE SET
+                            name = EXCLUDED.name,
+                            current_bar_index = EXCLUDED.current_bar_index,
+                            state_json = EXCLUDED.state_json,
+                            updated_at = TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+                    """),
+                    {
+                        "id": session_id,
+                        "user_id": user_id,
+                        "name": name,
+                        "symbol": symbol,
+                        "timeframe": timeframe,
+                        "initial_capital": initial_capital,
+                        "current_bar_index": current_bar_index,
+                        "state_json": state_json,
+                    }
+                )
+                row = conn.execute(text("SELECT * FROM backtest_sessions WHERE id = :id"), {"id": session_id}).mappings().first()
+                return _row_to_dict(row) if row else {}
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -871,25 +1528,48 @@ class DatabaseRepository:
             )
             conn.commit()
             cursor.execute("SELECT * FROM backtest_sessions WHERE id = ?;", (session_id,))
-            return dict(cursor.fetchone())
+            return _row_to_dict(cursor.fetchone())
 
     def get_replay_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        if self.use_postgres:
+            with engine.connect() as conn:
+                row = conn.execute(text("SELECT * FROM backtest_sessions WHERE id = :id"), {"id": session_id}).mappings().first()
+                return _row_to_dict(row) if row else None
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM backtest_sessions WHERE id = ?;", (session_id,))
             row = cursor.fetchone()
-            return dict(row) if row else None
+            return _row_to_dict(row) if row else None
 
     def list_replay_sessions(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        if self.use_postgres:
+            with engine.connect() as conn:
+                if user_id:
+                    rows = conn.execute(
+                        text("SELECT * FROM backtest_sessions WHERE user_id = :uid ORDER BY updated_at DESC"),
+                        {"uid": user_id}
+                    ).mappings().all()
+                else:
+                    rows = conn.execute(
+                        text("SELECT * FROM backtest_sessions ORDER BY updated_at DESC")
+                    ).mappings().all()
+                return [_row_to_dict(r) for r in rows]
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             if user_id:
                 cursor.execute("SELECT * FROM backtest_sessions WHERE user_id = ? ORDER BY updated_at DESC;", (user_id,))
             else:
                 cursor.execute("SELECT * FROM backtest_sessions ORDER BY updated_at DESC;")
-            return [dict(r) for r in cursor.fetchall()]
+            return [_row_to_dict(r) for r in cursor.fetchall()]
 
     def delete_replay_session(self, session_id: str) -> bool:
+        if self.use_postgres:
+            with engine.begin() as conn:
+                res = conn.execute(text("DELETE FROM backtest_sessions WHERE id = :id"), {"id": session_id})
+                return res.rowcount > 0
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM backtest_sessions WHERE id = ?;", (session_id,))
@@ -936,11 +1616,114 @@ class DatabaseRepository:
             INSERT OR IGNORE INTO users (id, email, password_hash, full_name, tier, role, is_active, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now', 'utc'), datetime('now', 'utc'));
             """,
-            (default_uid, "system@backtest-si.local", "dummy", "System User", "pro", "admin")
+            (default_uid, "system@backtestai.io", "dummy", "System User", "pro", "admin")
         )
         return default_uid
 
     def save_journal_entry(self, entry: Dict[str, Any], user_id: Optional[str] = None) -> Dict[str, Any]:
+        entry_id = entry.get("id") or f"JRN-{int(time.time() * 1000) % 100000000:08d}"
+        tags_val = entry.get("tags")
+        tags_str = json.dumps(tags_val) if isinstance(tags_val, list) else str(tags_val or "[]")
+
+        if self.use_postgres:
+            with engine.begin() as conn:
+                resolved_uid = user_id or entry.get("user_id")
+                if not resolved_uid:
+                    resolved_uid = conn.execute(text("SELECT id FROM users ORDER BY created_at ASC LIMIT 1")).scalar() or "usr-system-default"
+
+                sess_id = entry.get("session_id")
+                if sess_id:
+                    chk_sess = conn.execute(
+                        text("SELECT id FROM backtest_sessions WHERE id = :sid"),
+                        {"sid": sess_id}
+                    ).scalar()
+                    if not chk_sess:
+                        conn.execute(
+                            text("""
+                                INSERT INTO backtest_sessions (
+                                    id, user_id, name, symbol, timeframe, initial_capital, leverage,
+                                    current_bar_index, status, created_at, updated_at
+                                )
+                                VALUES (
+                                    :id, :user_id, :name, :symbol, :timeframe, 10000.0, 100.0,
+                                    0, 'active', TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+                                )
+                                ON CONFLICT (id) DO NOTHING
+                            """),
+                            {
+                                "id": sess_id,
+                                "user_id": resolved_uid,
+                                "name": f"Session {sess_id}",
+                                "symbol": entry.get("symbol") or "XAUUSD",
+                                "timeframe": entry.get("timeframe") or "1h",
+                            }
+                        )
+
+                run_id = entry.get("backtest_run_id")
+                if run_id:
+                    chk_run = conn.execute(
+                        text("SELECT id FROM backtest_runs WHERE id = :rid"),
+                        {"rid": run_id}
+                    ).scalar()
+                    if not chk_run:
+                        run_id = None
+
+                conn.execute(
+                    text("""
+                        INSERT INTO journal_entries (
+                            id, user_id, session_id, backtest_run_id, title, hypothesis, setup_type,
+                            market_conditions, notes, tags, outcome, symbol, timeframe, strategy_name,
+                            status, setup_notes, conclusion, sharpe_recorded, win_rate_recorded, created_at, updated_at
+                        )
+                        VALUES (
+                            :id, :user_id, :session_id, :backtest_run_id, :title, :hypothesis, :setup_type,
+                            :market_conditions, :notes, :tags, :outcome, :symbol, :timeframe, :strategy_name,
+                            :status, :setup_notes, :conclusion, :sharpe_recorded, :win_rate_recorded,
+                            TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+                        )
+                        ON CONFLICT (id) DO UPDATE SET
+                            title = EXCLUDED.title,
+                            hypothesis = EXCLUDED.hypothesis,
+                            setup_type = EXCLUDED.setup_type,
+                            market_conditions = EXCLUDED.market_conditions,
+                            notes = EXCLUDED.notes,
+                            tags = EXCLUDED.tags,
+                            outcome = EXCLUDED.outcome,
+                            symbol = EXCLUDED.symbol,
+                            timeframe = EXCLUDED.timeframe,
+                            strategy_name = EXCLUDED.strategy_name,
+                            status = EXCLUDED.status,
+                            setup_notes = EXCLUDED.setup_notes,
+                            conclusion = EXCLUDED.conclusion,
+                            sharpe_recorded = EXCLUDED.sharpe_recorded,
+                            win_rate_recorded = EXCLUDED.win_rate_recorded,
+                            updated_at = TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+                    """),
+                    {
+                        "id": entry_id,
+                        "user_id": resolved_uid,
+                        "session_id": sess_id,
+                        "backtest_run_id": run_id,
+                        "title": entry.get("title") or "Untitled Hypothesis",
+                        "hypothesis": entry.get("hypothesis"),
+                        "setup_type": entry.get("setup_type"),
+                        "market_conditions": entry.get("market_conditions"),
+                        "notes": entry.get("notes"),
+                        "tags": tags_str,
+                        "outcome": entry.get("outcome"),
+                        "symbol": entry.get("symbol") or "XAUUSD",
+                        "timeframe": entry.get("timeframe") or "1h",
+                        "strategy_name": entry.get("strategy_name") or "Discretionary Replay",
+                        "status": entry.get("status") or "TESTING",
+                        "setup_notes": entry.get("setup_notes"),
+                        "conclusion": entry.get("conclusion"),
+                        "sharpe_recorded": entry.get("sharpe_recorded"),
+                        "win_rate_recorded": entry.get("win_rate_recorded"),
+                    }
+                )
+            saved = self.get_journal_entry(entry_id)
+            return saved or {}
+
         with get_db_connection(self.db_path) as conn:
             self._ensure_journal_schema(conn)
             cursor = conn.cursor()
@@ -960,13 +1743,6 @@ class DatabaseRepository:
                         """,
                         (sess_id, resolved_uid, f"Session {sess_id}", entry.get("symbol") or "XAUUSD", entry.get("timeframe") or "1h")
                     )
-
-            entry_id = entry.get("id") or f"JRN-{int(time.time() * 1000) % 100000000:08d}"
-            tags_val = entry.get("tags")
-            if isinstance(tags_val, list):
-                tags_str = json.dumps(tags_val)
-            else:
-                tags_str = str(tags_val or "[]")
 
             cursor.execute(
                 """
@@ -1021,9 +1797,22 @@ class DatabaseRepository:
                 )
             )
             conn.commit()
-            return self.get_journal_entry(entry_id)  # type: ignore
+            saved = self.get_journal_entry(entry_id)
+            return saved or {}
 
     def get_journal_entry(self, entry_id: str) -> Optional[Dict[str, Any]]:
+        if self.use_postgres:
+            with engine.connect() as conn:
+                row = conn.execute(text("SELECT * FROM journal_entries WHERE id = :id"), {"id": entry_id}).mappings().first()
+                if not row:
+                    return None
+                d = _row_to_dict(row)
+                try:
+                    d["tags"] = json.loads(d["tags"]) if d.get("tags") else []
+                except Exception:
+                    d["tags"] = [t.strip() for t in str(d.get("tags", "")).split(",") if t.strip()]
+                return d
+
         with get_db_connection(self.db_path) as conn:
             self._ensure_journal_schema(conn)
             cursor = conn.cursor()
@@ -1031,7 +1820,7 @@ class DatabaseRepository:
             row = cursor.fetchone()
             if not row:
                 return None
-            d = dict(row)
+            d = _row_to_dict(row)
             try:
                 d["tags"] = json.loads(d["tags"]) if d.get("tags") else []
             except Exception:
@@ -1046,38 +1835,72 @@ class DatabaseRepository:
         session_id: Optional[str] = None,
         limit: int = 100
     ) -> List[Dict[str, Any]]:
+        if self.use_postgres:
+            with engine.connect() as conn:
+                query = "SELECT * FROM journal_entries WHERE 1=1"
+                pg_params: Dict[str, Any] = {}
+                if user_id:
+                    query += " AND user_id = :uid"
+                    pg_params["uid"] = user_id
+                if symbol:
+                    query += " AND symbol = :sym"
+                    pg_params["sym"] = symbol
+                if status and status != "ALL":
+                    query += " AND status = :st"
+                    pg_params["st"] = status
+                if session_id:
+                    query += " AND session_id = :sid"
+                    pg_params["sid"] = session_id
+                query += " ORDER BY created_at DESC LIMIT :lim"
+                pg_params["lim"] = limit
+                rows = conn.execute(text(query), pg_params).mappings().all()
+                results: List[Dict[str, Any]] = []
+                for r in rows:
+                    d = _row_to_dict(r)
+                    try:
+                        d["tags"] = json.loads(d["tags"]) if d.get("tags") else []
+                    except Exception:
+                        d["tags"] = [t.strip() for t in str(d.get("tags", "")).split(",") if t.strip()]
+                    results.append(d)
+                return results
+
         with get_db_connection(self.db_path) as conn:
             self._ensure_journal_schema(conn)
             cursor = conn.cursor()
             query = "SELECT * FROM journal_entries WHERE 1=1"
-            params: list = []
+            sql_params: List[Any] = []
             if user_id:
                 query += " AND user_id = ?"
-                params.append(user_id)
+                sql_params.append(user_id)
             if symbol:
                 query += " AND symbol = ?"
-                params.append(symbol)
+                sql_params.append(symbol)
             if status and status != "ALL":
                 query += " AND status = ?"
-                params.append(status)
+                sql_params.append(status)
             if session_id:
                 query += " AND session_id = ?"
-                params.append(session_id)
+                sql_params.append(session_id)
             query += " ORDER BY created_at DESC LIMIT ?"
-            params.append(limit)
+            sql_params.append(limit)
 
-            cursor.execute(query, tuple(params))
-            results = []
+            cursor.execute(query, tuple(sql_params))
+            results_sql: List[Dict[str, Any]] = []
             for r in cursor.fetchall():
-                d = dict(r)
+                d = _row_to_dict(r)
                 try:
                     d["tags"] = json.loads(d["tags"]) if d.get("tags") else []
                 except Exception:
                     d["tags"] = [t.strip() for t in str(d.get("tags", "")).split(",") if t.strip()]
-                results.append(d)
-            return results
+                results_sql.append(d)
+            return results_sql
 
     def delete_journal_entry(self, entry_id: str) -> bool:
+        if self.use_postgres:
+            with engine.begin() as conn:
+                res = conn.execute(text("DELETE FROM journal_entries WHERE id = :id"), {"id": entry_id})
+                return res.rowcount > 0
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM journal_entries WHERE id = ?;", (entry_id,))
@@ -1085,11 +1908,17 @@ class DatabaseRepository:
             return cursor.rowcount > 0
 
     def delete_all_journal_entries(self) -> int:
+        if self.use_postgres:
+            with engine.begin() as conn:
+                res = conn.execute(text("DELETE FROM journal_entries"))
+                return res.rowcount
+
         with get_db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM journal_entries;")
             conn.commit()
             return cursor.rowcount
+
 
 # Singleton repository instance
 db_repo = DatabaseRepository()

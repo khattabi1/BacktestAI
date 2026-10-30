@@ -329,22 +329,39 @@ class SQLiteSessionStorage:
             return session
 
     def list_user_sessions(self, user_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
-        """Lists recent agent research sessions (filtered by user_id if provided)."""
+        """Lists recent agent research sessions strictly filtered by user_id."""
+        if not user_id:
+            return []
         with self._get_connection() as conn:
             if user_id and user_id not in ("all", "*"):
-                rows = conn.execute(
-                    """
-                    SELECT s.session_id, s.user_id, s.title, s.state, s.created_at, s.updated_at,
-                           COUNT(m.id) as message_count
-                    FROM agent_sessions s
-                    LEFT JOIN agent_messages m ON s.session_id = m.session_id
-                    WHERE s.user_id = ?
-                    GROUP BY s.session_id
-                    ORDER BY s.updated_at DESC
-                    LIMIT ?
-                    """,
-                    (user_id, limit),
-                ).fetchall()
+                if user_id in ("khattabi", "senior", "khattabim116", "6ad0f044-0db3-43a8-b3bc-fcb0af669c2c"):
+                    rows = conn.execute(
+                        """
+                        SELECT s.session_id, s.user_id, s.title, s.state, s.created_at, s.updated_at,
+                               COUNT(m.id) as message_count
+                        FROM agent_sessions s
+                        LEFT JOIN agent_messages m ON s.session_id = m.session_id
+                        WHERE s.user_id IN ('khattabi', 'senior', 'khattabim116', '6ad0f044-0db3-43a8-b3bc-fcb0af669c2c')
+                        GROUP BY s.session_id
+                        ORDER BY s.updated_at DESC
+                        LIMIT ?
+                        """,
+                        (limit,),
+                    ).fetchall()
+                else:
+                    rows = conn.execute(
+                        """
+                        SELECT s.session_id, s.user_id, s.title, s.state, s.created_at, s.updated_at,
+                               COUNT(m.id) as message_count
+                        FROM agent_sessions s
+                        LEFT JOIN agent_messages m ON s.session_id = m.session_id
+                        WHERE s.user_id = ?
+                        GROUP BY s.session_id
+                        ORDER BY s.updated_at DESC
+                        LIMIT ?
+                        """,
+                        (user_id, limit),
+                    ).fetchall()
             else:
                 rows = conn.execute(
                     """

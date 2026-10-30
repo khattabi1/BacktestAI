@@ -1,4 +1,4 @@
-"""
+﻿"""
 Institutional Authentication & User Session Router for Backtest-SI.
 Provides zero-trust, JWT-backed cryptographic authentication for quantitative researchers,
 workspaces, and Google OAuth integration.
@@ -19,7 +19,7 @@ from apps.api.src.db.jwt_auth import create_access_token, decode_access_token
 
 GOOGLE_CLIENT_ID = os.getenv(
     "GOOGLE_CLIENT_ID",
-    "128872962137-d8i87630nnoi3jvqtv2aeou2g1ruioi9.apps.googleusercontent.com"
+    "475003086439-tbvm70i1i9uiqiu7msi58v2lb3g8cvnb.apps.googleusercontent.com"
 )
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -78,14 +78,22 @@ class ResetPasswordRequest(BaseModel):
 # Dependency: Extract authenticated session (JWT or Session Token)
 # -----------------------------------------------------------------------------
 def get_current_session(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
 ) -> Dict[str, Any]:
-    if not credentials or not credentials.credentials:
+    token = None
+    if credentials and credentials.credentials:
+        token = credentials.credentials
+    elif "auth_token" in request.cookies:
+        token = request.cookies.get("auth_token")
+    elif request.headers.get("x-auth-token"):
+        token = request.headers.get("x-auth-token")
+
+    if not token:
         raise HTTPException(
             status_code=401,
-            detail="Authorization header with Bearer token is required."
+            detail="Authorization header with Bearer token or auth_token cookie is required."
         )
-    token = credentials.credentials
     
     # 1. Try decoding as JWT
     jwt_claims = decode_access_token(token)

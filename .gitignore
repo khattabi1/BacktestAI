@@ -29,7 +29,7 @@ htmlcov/
 *.db
 *.db-wal
 *.db-shm
-data/
+/data/
 
 
 # Environment Variables & Secrets
@@ -58,3 +58,11 @@ TASK_LIST.md
 # Internal documentation & agent guidelines (local only)
 .doc/
 .agents/
+
+# Legacy task lists
+TASK_LIST_2.md
+
+# Backups & Scratch files
+backups/
+scratch/
+test/

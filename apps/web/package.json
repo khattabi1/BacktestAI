@@ -1,0 +1,41 @@
+{
+  "name": "backtest-ai-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3050",
+    "dev:lan": "next dev -H 0.0.0.0 -p 3050",
+    "build": "next build",
+    "start": "next start -p 3050",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@backtest-ai/chart": "*",
+    "@backtest-ai/domain": "*",
+    "@monaco-editor/react": "^4.7.0",
+    "@react-oauth/google": "^0.13.5",
+    "clsx": "^2.1.1",
+    "framer-motion": "^14.0.0",
+    "lucide-react": "^0.460.0",
+    "next": "14.2.18",
+    "nextjs-toploader": "^3.9.17",
+    "openalgo-charts": "^2.6.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^2.5.4",
+    "zustand": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "autoprefixer": "^10.4.20",
+    "caniuse-lite": "^1.0.30001680",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3"
+  },
+  "optionalDependencies": {
+    "@next/swc-win32-x64-msvc": "14.2.18"
+  }
+}

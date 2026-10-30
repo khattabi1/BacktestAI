@@ -1,0 +1,44 @@
+- strategy hub/shop/msrket place 
+wher eany user can sell his strategy and other can buy it as ex5 
+once user lunch it staregy in market user may  get in it look all versions test and perfermentces 
+event can run it on any dispo symobol and any custom periode 
+where the buyer cannot see the code only see its perfermentces 
+so like this we ansure the full trenparenty btw buyer and seller 
+
+also user my sell its startegy completly 
+this mean sell the startygy coompletly as  code with its all version and teste 
+like we move the entety startegy from the seller to the buyer and we take comission on this 
+so like this we create a new market for strategies
+
+also we would have free startegy 
+any user can share its startygy open source any wan can clone it and fork it 
+-------------------------------------------------------------------------------
+- trade click-to-replay (inspect on chart)
+  clicking any row in executed trades instantly jumps chart replay to that trade's entry bar (visual audit of sl/tp).
+
+- monte carlo & stress testing
+  1000x trade reshuffle + spread & slippage stress test to verify real worst-case drawdown and detect overfitting.
+
+- 1-click mt5 demo forward deployment
+  direct button to deploy validated strategy (.ex5) to live mt5 demo account for forward testing without touching metaeditor.
+
+- quant ai prompt presets
+  quick action buttons above quant si chat for instant tasks (add session time filters, optimize sl/be ratio, remove bias).
+
+- multi-pair / portfolio backtest comparison
+  backtest across multiple symbols simultaneously (e.g. xauusd + eurusd) and view combined equity curve and drawdown diversification.
+--------------------------
+Option 4: Trading Journal (/app/journal)
+Trade History & Metrics: Real-time MT5 deal synchronization, trade tagging, and performance breakdown by session/pair.
+========================
+Option 3: Strategy Library & Comparison (/app/strategies & /app/compare)
+Strategy Portfolio Management: Version control ($v1, v2\dots$), source code vs. compiled .ex5 status.
+Side-by-Side Comparison: Metric overlays (Sharpe Ratio, Win Rate, Profit Factor, Max Drawdown) across multiple market regimes.
+-------------------------
+Option 1: Quant Trading Lab (/app/quant)
+Strategy Fork Workflow: Seamless integration when clicking "Fork to Quant Lab" from Community posts to load the code directly into the IDE.
+Code Editor & AI Assistant: Code generation, syntax highlighting, parameter tuning, and direct MT5 compilation via the server backend.
+----------------------
+Option 2: Backtest Studio & Replay Engine (/app/backtest)
+Tick Replay & Backtesting: Multi-timeframe execution over historical Parquet data with DuckDB.
+Interactive Results: Equity curve charts, trade logs, drawdowns, and commission/slippage stress tests.

@@ -1,0 +1,930 @@
+{
+  "FX - Major Pairs": [
+    {
+      "symbol": "EURUSD",
+      "description": "Euro vs US Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "GBPUSD",
+      "description": "Great Britain Pound vs US Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "USDCHF",
+      "description": "US Dollar vs Swiss Franc",
+      "category": "Forex"
+    },
+    {
+      "symbol": "USDJPY",
+      "description": "US Dollar vs Japanese Yen",
+      "category": "Forex"
+    },
+    {
+      "symbol": "USDCAD",
+      "description": "US Dollar vs Canadian Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "AUDUSD",
+      "description": "Australian Dollar vs US Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "NZDUSD",
+      "description": "New Zealand Dollar vs US Dollar",
+      "category": "Forex"
+    }
+  ],
+  "FX - Minor Pairs": [
+    {
+      "symbol": "AUDNZD",
+      "description": "Australian Dollar vs New Zealand Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "AUDCAD",
+      "description": "Australian Dollar vs Canadian Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "AUDCHF",
+      "description": "Australian Dollar vs Swiss Franc",
+      "category": "Forex"
+    },
+    {
+      "symbol": "AUDJPY",
+      "description": "Australian Dollar vs Japanese Yen",
+      "category": "Forex"
+    },
+    {
+      "symbol": "CHFJPY",
+      "description": "Swiss Franc vs Japanese Yen",
+      "category": "Forex"
+    },
+    {
+      "symbol": "EURGBP",
+      "description": "Euro vs Great Britain Pound",
+      "category": "Forex"
+    },
+    {
+      "symbol": "EURAUD",
+      "description": "Euro vs Australian Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "EURJPY",
+      "description": "Euro vs Japanese Yen",
+      "category": "Forex"
+    },
+    {
+      "symbol": "EURCHF",
+      "description": "Euro vs Swiss Franc",
+      "category": "Forex"
+    },
+    {
+      "symbol": "EURNZD",
+      "description": "Euro vs New Zealand Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "EURCAD",
+      "description": "Euro vs Canadian Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "GBPCHF",
+      "description": "Great Britain Pound vs Swiss Franc",
+      "category": "Forex"
+    },
+    {
+      "symbol": "GBPJPY",
+      "description": "Great Britain Pound vs Japanese Yen",
+      "category": "Forex"
+    },
+    {
+      "symbol": "CADCHF",
+      "description": "Canadian Dollar vs Swiss Franc",
+      "category": "Forex"
+    },
+    {
+      "symbol": "CADJPY",
+      "description": "Canadian Dollar vs Japanese Yen",
+      "category": "Forex"
+    },
+    {
+      "symbol": "GBPAUD",
+      "description": "Great Britain Pound vs Australian Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "GBPCAD",
+      "description": "Great Britain Pound vs Canadian Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "GBPNZD",
+      "description": "Great Britain Pound vs New Zealand Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "NZDCAD",
+      "description": "New Zealand Dollar vs Canadian Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "NZDCHF",
+      "description": "New Zealand Dollar vs Swiss Franc",
+      "category": "Forex"
+    },
+    {
+      "symbol": "NZDJPY",
+      "description": "New Zealand Dollar vs Japanese Yen",
+      "category": "Forex"
+    },
+    {
+      "symbol": "USDSGD",
+      "description": "US Dollar vs Singapore Dollar",
+      "category": "Forex"
+    }
+  ],
+  "FX - Exotics": [
+    {
+      "symbol": "AUDSGD",
+      "description": "Australian Dollar vs Singpore Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "CHFSGD",
+      "description": "Swiss Franc vs Singapore Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "EURDKK",
+      "description": "Euro vs Danish Korner",
+      "category": "Forex"
+    },
+    {
+      "symbol": "EURHKD",
+      "description": "Euro vs Hong Kong Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "EURNOK",
+      "description": "Euro vs Norwegian Krona",
+      "category": "Forex"
+    },
+    {
+      "symbol": "EURPLN",
+      "description": "Euro vs Polish Zloty",
+      "category": "Forex"
+    },
+    {
+      "symbol": "EURSEK",
+      "description": "Euro vs Swedish Kronor",
+      "category": "Forex"
+    },
+    {
+      "symbol": "EURSGD",
+      "description": "Euro vs Singapore Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "EURTRY",
+      "description": "Euro vs Turkish Lira",
+      "category": "Forex"
+    },
+    {
+      "symbol": "EURZAR",
+      "description": "Euro vs South African Rand",
+      "category": "Forex"
+    },
+    {
+      "symbol": "GBPDKK",
+      "description": "Great Britain Pound vs Danish Kroner",
+      "category": "Forex"
+    },
+    {
+      "symbol": "GBPNOK",
+      "description": "Great Britain Pound vs Norwegian Krona",
+      "category": "Forex"
+    },
+    {
+      "symbol": "GBPSEK",
+      "description": "Great Britain Pound vs Swedish Kronor",
+      "category": "Forex"
+    },
+    {
+      "symbol": "GBPSGD",
+      "description": "Great Britain Pound vs Singapore Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "GBPTRY",
+      "description": "Great Britain Pound vs Turkish Lira",
+      "category": "Forex"
+    },
+    {
+      "symbol": "NOKJPY",
+      "description": "Norwegian Kroner vs Japanese Yen",
+      "category": "Forex"
+    },
+    {
+      "symbol": "NOKSEK",
+      "description": "Norwegian Kroner vs Swedish Kronor",
+      "category": "Forex"
+    },
+    {
+      "symbol": "SEKJPY",
+      "description": "Swedish Kronor vs. Japanese Yen",
+      "category": "Forex"
+    },
+    {
+      "symbol": "SGDJPY",
+      "description": "Singapore Dollar vs. Japanese Yen",
+      "category": "Forex"
+    },
+    {
+      "symbol": "USDCNH",
+      "description": "US Dollar vs Chinese Renminbi",
+      "category": "Forex"
+    },
+    {
+      "symbol": "USDCZK",
+      "description": "US Dollar vs Czech Republic Korunas",
+      "category": "Forex"
+    },
+    {
+      "symbol": "USDDKK",
+      "description": "US Dollar vs Danish Kroner",
+      "category": "Forex"
+    },
+    {
+      "symbol": "USDHKD",
+      "description": "US Dollar vs Hong Kong Dollar",
+      "category": "Forex"
+    },
+    {
+      "symbol": "USDHUF",
+      "description": "US Dollar vs Hungarian Forints",
+      "category": "Forex"
+    },
+    {
+      "symbol": "USDMXN",
+      "description": "US Dollar vs Mexican Peso",
+      "category": "Forex"
+    },
+    {
+      "symbol": "USDNOK",
+      "description": "US Dollar vs Norwegian Kroner",
+      "category": "Forex"
+    },
+    {
+      "symbol": "USDPLN",
+      "description": "US Dollar vs Polish Zlotys",
+      "category": "Forex"
+    },
+    {
+      "symbol": "USDSEK",
+      "description": "US Dollar vs Swedish Kroner",
+      "category": "Forex"
+    },
+    {
+      "symbol": "USDTHB",
+      "description": "US Dollar vs Thai Baht",
+      "category": "Forex"
+    },
+    {
+      "symbol": "USDTRY",
+      "description": "US Dollar vsTurkish Lira",
+      "category": "Forex"
+    },
+    {
+      "symbol": "USDZAR",
+      "description": "US Dollar vs South African Rand",
+      "category": "Forex"
+    }
+  ],
+  "Commodities - Metals": [
+    {
+      "symbol": "XAGEUR",
+      "description": "Silver vs Euro",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "XAGUSD",
+      "description": "Silver vs US Dollar",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "XAUEUR",
+      "description": "Gold vs Euro",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "XAUUSD",
+      "description": "Gold vs US Dollar",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "XPDUSD",
+      "description": "Palladium vs US Dollar",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "XPTUSD",
+      "description": "Platinum vs US Dollar",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "XAUAUD",
+      "description": "Gold vs Australian Dollar",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "XAUJPY",
+      "description": "Gold vs Japanese Yen",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "XAUCHF",
+      "description": "Gold vs Swiss Franc",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "XAUGBP",
+      "description": "Gold vs Great Britain Pound",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "XAGAUD",
+      "description": "Silver vs Australian Dollar",
+      "category": "Commodities"
+    }
+  ],
+  "Commodities - Energies & Softs": [
+    {
+      "symbol": "XBRUSD",
+      "description": "Brent Oil vs US Dollar",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "XNGUSD",
+      "description": "Natural Gas vs US Dollar",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "XTIUSD",
+      "description": "Crude Oil vs US Dollar",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "WTI.NYSE",
+      "description": "W&T Offshore Inc CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "Cotton_Z6",
+      "description": "Cotton No 2 -December 26 CFD",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "BRENT_M6",
+      "description": "Crude Oil Brent -June 26 CFD",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "BRENT_Z6",
+      "description": "Crude Oil Brent -December 26 CFD",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "WTI_Z6",
+      "description": "US Crude Oil -December 26 CFD",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "OJ_N6",
+      "description": "Orange Juice -July 26 CFD",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "XTIA.NAS-24",
+      "description": "XTI AEROSPACE INC 24/5 CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "WTI.NYSE-24",
+      "description": "W&T OFFSHORE INC 24/5 CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "OJ_X6_CFD",
+      "description": "Orange Juice -November 26 CFD",
+      "category": "Commodities"
+    },
+    {
+      "symbol": "WTI_X6_CFD",
+      "description": "US Crude Oil -November 26 CFD",
+      "category": "Commodities"
+    }
+  ],
+  "Indices - Global": [
+    {
+      "symbol": "AUS200",
+      "description": "Australia 200 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "CHINA50",
+      "description": "FTSE China A50 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "ES35",
+      "description": "Spain 35 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "STOXX50",
+      "description": "EU Stocks 50 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "F40",
+      "description": "France 40 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "HK50",
+      "description": "Hong Kong 50 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "IT40",
+      "description": "Italy 40 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "JP225",
+      "description": "Japan 225 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "UK100",
+      "description": "UK 100 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "US2000",
+      "description": "US Small Cap 2000 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "US30",
+      "description": "US Wall Street 30 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "US500",
+      "description": "US SPX 500 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "USTEC",
+      "description": "US Tech 100 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "CA60",
+      "description": "Canada 60 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "NETH25",
+      "description": "Netherlands 25 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "SE30",
+      "description": "Sweden 30 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "SWI20",
+      "description": "Switzerland 20 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "CHINAH",
+      "description": "Hong Kong China H-shares Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "SA40",
+      "description": "South Africa 40 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "NOR25",
+      "description": "Norway 25 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "TecDE30",
+      "description": "Germany Tech 30 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "MidDE60",
+      "description": "Germany Mid 60 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "DE40",
+      "description": "Germany 40 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "MidDE50",
+      "description": "Germany Mid 50 Index",
+      "category": "Indices"
+    },
+    {
+      "symbol": "VIX_V6",
+      "description": "Volatility Index - October 26 CFD",
+      "category": "Indices"
+    },
+    {
+      "symbol": "VIX_X6",
+      "description": "Volatility Index - November 26 CFD",
+      "category": "Indices"
+    },
+    {
+      "symbol": "DXY_Z6",
+      "description": "US Dollar Index -December 26 CFD",
+      "category": "Indices"
+    }
+  ],
+  "Crypto": [
+    {
+      "symbol": "BTCUSD",
+      "description": "Bitcoin (USD)",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "BCHUSD",
+      "description": "Bitcoin Cash US Dollar",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "ETHUSD",
+      "description": "Ethereum (USD)",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "LTCUSD",
+      "description": "Litecoin US Dollar",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "XRPUSD",
+      "description": "Ripple US Dollar",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "XLMUSD",
+      "description": "XLM vs US Dollar",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "LTC.NYSE",
+      "description": "LTC Properties Inc CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "AVXL.NAS",
+      "description": "Anavex Life Sciences Corp CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "ADAUSD",
+      "description": "Cardano (USD)",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "XTZUSD",
+      "description": "Tezos (USD)",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "DOGUSD",
+      "description": "Dogecoin USD",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "UNIUSD",
+      "description": "Uniswap (USD)",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "BNBUSD",
+      "description": "Binance Coin (USD)",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "DOTUSD",
+      "description": "DOT vs US Dollar",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "LNKUSD",
+      "description": "LNK vs US Dollar",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "ADAG.NAS",
+      "description": "Adagene Inc CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "SOLUSD",
+      "description": "Solana vs US Dollar",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "AVXUSD",
+      "description": "Avalanche vs US Dollar",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "KSMUSD",
+      "description": "Kusama vs US Dollar",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "POLUSD",
+      "description": "Polygon Matic vs US Dollar",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "ADAM.NAS",
+      "description": "Adamas Trust Inc CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "SOLS.NAS",
+      "description": "Solstice Advanced Materials Inc CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "SOLV.NYSE",
+      "description": "Solventum Corp CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "ADAVIATION.AD",
+      "description": "Abu Dhabi Aviation PJSC CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "SOLT.NAS",
+      "description": "2x Solana ETF CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "XRPT.NAS",
+      "description": "2x XRP ETF CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "AVXL.NAS-24",
+      "description": "ANAVEX LIFE SCIENCES CORP 24/5 CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "ADAG.NAS-24",
+      "description": "ADAGENE INC-ADR 24/5 CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "BTCT.NAS-24",
+      "description": "BTC DIGITAL LTD 24/5 CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "SOLV.NYSE-24",
+      "description": "SOLVENTUM CORP 24/5 CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "DOGZ.NAS-24",
+      "description": "DOGNESS INTERNATIONAL CORP-A 24/5 CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "ETHA.NAS-24",
+      "description": "ISHARES ETHEREUM TRUST ETF 24/5 CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "SOLT.NAS-24",
+      "description": "2X SOLANA ETF 24/5 CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "SOLZ.NAS-24",
+      "description": "SOLANA ETF 24/5 CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "XRPI.NAS-24",
+      "description": "XRP ETF 24/5 CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "XRPT.NAS-24",
+      "description": "2X XRP ETF 24/5 CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "LTC.NYSE-24",
+      "description": "LTC PROPERTIES INC 24/5 CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "ADAM.NAS-24",
+      "description": "ADAMAS TRUST INC 24/5 CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "DATAUSD",
+      "description": "Data Network (USD)",
+      "category": "Crypto"
+    },
+    {
+      "symbol": "SOLB.BR",
+      "description": "Solvay SA CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "SOLARb.DK",
+      "description": "Solar A/S CFD",
+      "category": "Stock CFD's"
+    }
+  ],
+  "US Equities (Top Liquid)": [
+    {
+      "symbol": "AAPL.NAS",
+      "description": "Apple Inc CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "AMZN.NAS",
+      "description": "Amazon.com Inc CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "GOOG.NAS",
+      "description": "Alphabet Inc CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "INTC.NAS",
+      "description": "Intel Corp CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "MSFT.NAS",
+      "description": "Microsoft Corp CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "NFLX.NAS",
+      "description": "Netflix Inc CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "NVDA.NAS",
+      "description": "NVIDIA Corp CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "TSLA.NAS",
+      "description": "Tesla Inc CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "BA.NYSE",
+      "description": "Boeing Co/The CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "BAC.NYSE",
+      "description": "Bank of America Corp CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "CVX.NYSE",
+      "description": "Chevron Corp CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "DIS.NYSE",
+      "description": "Walt Disney Co/The CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "JPM.NYSE",
+      "description": "JPMorgan Chase & Co CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "MA.NYSE",
+      "description": "Mastercard Inc CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "V.NYSE",
+      "description": "Visa Inc CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "XOM.NYSE",
+      "description": "Exxon Mobil Corp CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "AMD.NAS",
+      "description": "Advanced Micro Devices Inc CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "CRM.NYSE",
+      "description": "Salesforce Inc CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "MSTR.NAS",
+      "description": "Strategy Inc CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "COIN.NAS",
+      "description": "Coinbase Global Inc CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "PLTR.NAS",
+      "description": "Palantir Technologies Inc CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "SMCI.NAS",
+      "description": "Super Micro Computer Inc CFD",
+      "category": "Stock CFD's"
+    }
+  ],
+  "ETFs & Funds": [
+    {
+      "symbol": "QQQ.NAS",
+      "description": "Invesco QQQ Trust Series 1 CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "TLT.NAS",
+      "description": "iShares 20+ Year Treasury Bond ETF CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "TQQQ.NAS",
+      "description": "ProShares UltraPro QQQ CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "BITO.NYSE",
+      "description": "ProShares Bitcoin ETF CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "IWM.NYSE",
+      "description": "iShares Russell 2000 ETF CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "SPY.NYSE",
+      "description": "State Street SPDR S&P 500 ETF CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "YQQQ.NAS",
+      "description": "YieldMax\ufffd YQQQ Short N100 Option Income Strategy ETF CFD",
+      "category": "Stock CFD's"
+    },
+    {
+      "symbol": "SQQQ.NAS",
+      "description": "ProShares UltraPro Short QQQ CFD",
+      "category": "Stock CFD's"
+    }
+  ]
+}

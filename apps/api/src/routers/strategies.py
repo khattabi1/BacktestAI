@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import ast
 import re
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Query
 from domain.models import StrategyMetadata
 from ..services.strategy_registry import strategy_registry
 from ..services.ai_copilot_service import (
@@ -15,7 +15,7 @@ from ..services.ai_copilot_service import (
 
 router = APIRouter(prefix="/strategies", tags=["Strategies"])
 
-def _build_full_strategy_catalog() -> List[Dict[str, Any]]:
+def _build_full_strategy_catalog(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
     results = []
     seen_ids = set()
 
@@ -23,7 +23,7 @@ def _build_full_strategy_catalog() -> List[Dict[str, Any]]:
         from ..db.repository import DatabaseRepository
         import json
         repo = DatabaseRepository()
-        db_strats = repo.list_strategies()
+        db_strats = repo.list_strategies(user_id=user_id)
         for s in db_strats:
             s_id = s["id"]
             if s_id in seen_ids:
@@ -68,7 +68,7 @@ def _build_full_strategy_catalog() -> List[Dict[str, Any]]:
 
             sym = "XAUUSD" if any(w in name_lower for w in ["gold", "xau"]) else ("BTCUSDT" if "btc" in name_lower else "EURUSD")
             tf = "5m" if "5m" in name_lower else ("15m" if "15m" in name_lower else ("4h" if "4h" in name_lower else "1h"))
-            lang = s.get("language", "python")
+            lang = s.get("language", "mql5")
             tags = [lang.upper(), cat]
             if "gold" in name_lower or "xau" in name_lower:
                 tags.append("Gold")
@@ -96,23 +96,26 @@ def _build_full_strategy_catalog() -> List[Dict[str, Any]]:
     return results
 
 @router.get("", response_model=List[Dict[str, Any]])
-def list_strategies():
-    """List all registered algorithmic trading strategies saved in database and their parameter schemas."""
-    return _build_full_strategy_catalog()
+def list_strategies(request: Request, user_id: Optional[str] = Query(None)):
+    """List all registered algorithmic trading strategies for the authenticated user + built-ins."""
+    effective_user_id = getattr(request.state, "user_id", None) or user_id
+    return _build_full_strategy_catalog(user_id=effective_user_id)
 
 class StrategyCreateRequest(BaseModel):
     name: str
     description: Optional[str] = None
     code: str
-    language: str = "python"
+    language: str = "mql5"
     parameters: Optional[Any] = None
 
 
 @router.post("", status_code=201, response_model=Dict[str, Any])
-def create_strategy(payload: StrategyCreateRequest):
-    """Save a new strategy in the database."""
+def create_strategy(payload: StrategyCreateRequest, request: Request):
+    """Save a new strategy in the database scoped strictly to the authenticated user."""
     from ..db.repository import DatabaseRepository
     repo = DatabaseRepository()
+    effective_user_id = getattr(request.state, "user_id", None) or "6ad0f044-0db3-43a8-b3bc-fcb0af669c2c"
+
     params_dict = {}
     if isinstance(payload.parameters, list):
         for p in payload.parameters:
@@ -126,24 +129,38 @@ def create_strategy(payload: StrategyCreateRequest):
         code=payload.code,
         language=payload.language,
         description=payload.description or "",
+        user_id=effective_user_id,
         default_parameters=params_dict
     )
     return strat
 
 
 @router.delete("")
-def wipe_all_strategies():
-    """Wipe all saved strategies from database."""
+def wipe_all_strategies(request: Request):
+    """Wipe strategies owned by the authenticated user."""
     from ..db.repository import DatabaseRepository
     repo = DatabaseRepository()
-    count = repo.delete_all_strategies()
+    effective_user_id = getattr(request.state, "user_id", None)
+    if not effective_user_id:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    count = repo.delete_all_strategies(user_id=effective_user_id)
     return {"success": True, "deleted_count": count}
 
 @router.delete("/{strategy_id}")
-def delete_strategy(strategy_id: str):
-    """Delete a specific strategy by ID."""
+def delete_strategy(strategy_id: str, request: Request):
+    """Delete a specific strategy strictly if owned by the user."""
     from ..db.repository import DatabaseRepository
     repo = DatabaseRepository()
+    strat = repo.get_strategy(strategy_id)
+    if not strat:
+        raise HTTPException(status_code=404, detail=f"Strategy '{strategy_id}' not found.")
+    if strat.get("is_built_in", 0) == 1:
+        raise HTTPException(status_code=403, detail="Built-in benchmark strategies cannot be deleted.")
+
+    effective_user_id = getattr(request.state, "user_id", None)
+    if effective_user_id and strat.get("user_id") and strat["user_id"] != effective_user_id:
+        raise HTTPException(status_code=403, detail="Unauthorized: You do not own this strategy.")
+
     success = repo.delete_strategy(strategy_id)
     if not success:
         raise HTTPException(status_code=404, detail=f"Strategy '{strategy_id}' not found.")
@@ -151,9 +168,10 @@ def delete_strategy(strategy_id: str):
 
 
 @router.get("/{strategy_id}", response_model=Dict[str, Any])
-def get_strategy(strategy_id: str):
-    """Get metadata and parameters for a specific strategy."""
-    catalog = _build_full_strategy_catalog()
+def get_strategy(strategy_id: str, request: Request):
+    """Get metadata and parameters for a specific strategy accessible by the user."""
+    effective_user_id = getattr(request.state, "user_id", None)
+    catalog = _build_full_strategy_catalog(user_id=effective_user_id)
     for s in catalog:
         if s["id"] == strategy_id:
             return s
@@ -187,7 +205,7 @@ def _resolve_strategy_id(repo, identifier: str, username: Optional[str] = None) 
     return None
 
 @router.get("/{strategy_id}/versions", response_model=List[Dict[str, Any]])
-def get_strategy_versions(strategy_id: str, username: str = "default"):
+def get_strategy_versions(strategy_id: str, request: Request, username: Optional[str] = None):
     """Retrieve all historical version snapshots for a strategy by ID or filename."""
     from ..db.repository import DatabaseRepository
     import re
@@ -200,20 +218,13 @@ def get_strategy_versions(strategy_id: str, username: str = "default"):
     clean_name = strategy_id.replace(".mq5", "").replace(".py", "").strip()
 
     # 1. Reconcile with filesystem version snapshots in data/users/<username>/ and subfolders
-    user_dir = _get_user_dir(username)
+    user_dir = _get_user_dir(request=request, username=username)
     candidate_dirs = [user_dir]
     sub_dir = user_dir / clean_name
     if sub_dir.is_dir():
         candidate_dirs.append(sub_dir)
 
-    # Also check other active user directories if user_dir is empty or default
-    if not any(user_dir.glob(f"*{clean_name}*")):
-        for ud in USERS_STORAGE_DIR.iterdir():
-            if ud.is_dir() and ud != user_dir:
-                if any(ud.glob(f"*{clean_name}*")):
-                    candidate_dirs.append(ud)
-                    if (ud / clean_name).is_dir():
-                        candidate_dirs.append(ud / clean_name)
+
 
     # Scan for versioned files like <clean_name>_v<N>.mq5 or .py
     v_pattern = re.compile(rf"^{re.escape(clean_name)}_v(\d+)\.(mq5|py)$", re.IGNORECASE)
@@ -322,7 +333,7 @@ def get_strategy_versions(strategy_id: str, username: str = "default"):
 
 
 @router.get("/{strategy_id}/versions/{version_num}", response_model=Dict[str, Any])
-def get_strategy_version_detail(strategy_id: str, version_num: int, username: str = "default"):
+def get_strategy_version_detail(strategy_id: str, version_num: int, request: Request, username: Optional[str] = None):
     """Retrieve full code snapshot and parameters for a specific strategy version."""
     from ..db.repository import DatabaseRepository
     from .workspace_files import _get_user_dir, USERS_STORAGE_DIR
@@ -338,13 +349,9 @@ def get_strategy_version_detail(strategy_id: str, version_num: int, username: st
         return ver
 
     # 2. Check filesystem version snapshots in user directory and subfolder
-    user_dir = _get_user_dir(username)
+    user_dir = _get_user_dir(request=request, username=username)
     candidate_dirs = [user_dir, user_dir / clean_name]
-    for ud in USERS_STORAGE_DIR.iterdir():
-        if ud.is_dir() and ud != user_dir:
-            candidate_dirs.append(ud)
-            if (ud / clean_name).is_dir():
-                candidate_dirs.append(ud / clean_name)
+
 
     for d in candidate_dirs:
         for ext in (".mq5", ".py"):
@@ -401,7 +408,7 @@ def commit_strategy_version(strategy_id: str, payload: StrategyVersionCommitRequ
         strat = repo.create_strategy(
             name=clean_name,
             code=payload.code,
-            language="mql5" if strategy_id.endswith(".mq5") else "python",
+            language="python" if strategy_id.endswith(".py") else "mql5",
             default_parameters=payload.parameters or {}
         )
         resolved_id = strat["id"]
@@ -421,6 +428,7 @@ def commit_strategy_version(strategy_id: str, payload: StrategyVersionCommitRequ
 def revert_strategy(
     strategy_id: str,
     version_num: int,
+    request: Request,
     username: str = "default",
     payload: Optional[StrategyRestoreRequest] = None,
 ):
@@ -447,13 +455,9 @@ def revert_strategy(
             restored_code = ver["code"]
 
     # 3. Check filesystem version snapshots in user directory and subfolders
-    user_dir = _get_user_dir(effective_username)
+    user_dir = _get_user_dir(request=request, username=effective_username)
     candidate_dirs = [user_dir, user_dir / clean_name]
-    for ud in USERS_STORAGE_DIR.iterdir():
-        if ud.is_dir() and ud != user_dir:
-            candidate_dirs.append(ud)
-            if (ud / clean_name).is_dir():
-                candidate_dirs.append(ud / clean_name)
+
 
     if not restored_code:
         for d in candidate_dirs:
@@ -578,7 +582,7 @@ def fix_strategy_syntax_with_ai(payload: StrategyFixRequest):
 
 class StrategyValidateRequest(BaseModel):
     code: str
-    language: str = "python"
+    language: str = "mql5"
 
 class StrategyValidationError(BaseModel):
     line: int

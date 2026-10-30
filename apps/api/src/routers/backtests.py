@@ -1,7 +1,7 @@
 import asyncio
 import re
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from domain.models import BacktestRunRequest, BacktestRunResponse, BacktestRecordModel
 from ..services.backtest_service import backtest_service
 from ..services.backtest_store import backtest_store
@@ -9,7 +9,7 @@ from ..services.backtest_store import backtest_store
 router = APIRouter(prefix="/backtests", tags=["Backtests"])
 
 @router.post("/run", response_model=BacktestRunResponse)
-async def run_backtest(req: BacktestRunRequest):
+async def run_backtest(req: BacktestRunRequest, request: Request):
     """
     Execute a backtest run deterministically.
     - Loads historical parquet bars via DuckDB
@@ -19,7 +19,7 @@ async def run_backtest(req: BacktestRunRequest):
     """
     try:
         response = await asyncio.wait_for(
-            asyncio.to_thread(backtest_service.run_backtest, req),
+            asyncio.to_thread(backtest_service.run_backtest, req, user_id=getattr(request.state, "user_id", None)),
             timeout=60.0
         )
         return response
@@ -222,6 +222,7 @@ def get_backtest(backtest_id: str):
 
 @router.get("", response_model=List[BacktestRecordModel])
 def list_backtests(
+    request: Request,
     limit: int = Query(50, ge=1, le=200),
     version_num: Optional[int] = Query(None),
     min_trades: Optional[int] = Query(None)
@@ -229,13 +230,18 @@ def list_backtests(
     """Retrieve history of completed backtest records, combining in-memory and SQLite repository."""
     limit_val = int(getattr(limit, "default", limit) or 50)
     effective_min_trades = min_trades or 0
+    user_id = getattr(request.state, "user_id", None)
     records = backtest_store.list_records(limit=limit_val, min_trades=effective_min_trades)
+    if user_id:
+        records = [r for r in records if getattr(r, "user_id", None) in (user_id, None)]
+    else:
+        records = []
     seen_ids = {r.id for r in records}
     try:
         from ..db.repository import DatabaseRepository
         from domain.models import BacktestStatus, PerformanceMetricsModel, SimulationConfigModel
         repo = DatabaseRepository()
-        db_runs = repo.list_backtest_runs(limit=limit_val, min_trades=effective_min_trades)
+        db_runs = repo.list_backtest_runs(user_id=user_id, limit=limit_val, min_trades=effective_min_trades)
         for r in db_runs:
             if r["id"] not in seen_ids:
                 metrics_data = r.get("metrics") or {}
@@ -281,22 +287,24 @@ def list_backtests(
 
 
 @router.delete("")
-def clear_all_backtests():
-    """Clear all backtest records from in-memory cache and SQLite database."""
+def clear_all_backtests(request: Request):
+    """Clear all backtest records for the authenticated user from in-memory cache and SQLite database."""
     backtest_store.clear()
     from ..db.repository import DatabaseRepository
     repo = DatabaseRepository()
-    runs_deleted = repo.delete_all_backtest_runs()
+    user_id = getattr(request.state, "user_id", None)
+    runs_deleted = repo.delete_all_backtest_runs(user_id=user_id)
     return {"success": True, "runs_deleted": runs_deleted}
 
 
 @router.delete("/{run_id}")
-def delete_single_backtest(run_id: str):
-    """Delete a single backtest record by ID from in-memory cache and SQLite database."""
+def delete_single_backtest(run_id: str, request: Request):
+    """Delete a single backtest record by ID strictly if owned by caller."""
     backtest_store.delete_run(run_id)
     from ..db.repository import DatabaseRepository
     repo = DatabaseRepository()
-    deleted = repo.delete_backtest_run(run_id)
+    user_id = getattr(request.state, "user_id", None)
+    deleted = repo.delete_backtest_run(run_id, user_id=user_id)
     return {"success": True, "run_id": run_id, "deleted": deleted}
 
 

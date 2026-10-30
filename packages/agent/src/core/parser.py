@@ -33,6 +33,11 @@ class StreamThoughtParser:
         """
         self._buffer += chunk
 
+        # Clean stray rogue backticked think tags that some models leak
+        if not self.in_thought and not self.has_thought:
+            if self._buffer.startswith("`think`"):
+                self._buffer = self._buffer[7:].lstrip()
+
         while self._buffer:
             if not self.in_thought:
                 if self.OPEN_TAG in self._buffer:

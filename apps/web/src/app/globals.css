@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #080B10;
+  --foreground: #F4F7FA;
+  --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-jetbrains-mono: 'JetBrains Mono', monospace;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-inter);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Quant Research Grid */
+.bg-quant-grid {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(32, 42, 56, 0.25) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(32, 42, 56, 0.25) 1px, transparent 1px);
+}
+
+.bg-radial-obsidian {
+  background: radial-gradient(circle at 50% 20%, rgba(34, 211, 238, 0.05) 0%, rgba(8, 11, 16, 0) 70%);
+}
+
+/* Custom Sleek Terminal Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #080B10;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #202A38;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #22D3EE;
+}
+
+/* Text Selection */
+::selection {
+  background: rgba(34, 211, 238, 0.25);
+  color: #22D3EE;
+}
+
+/* Terminal Glassmorphism */
+.glass-panel {
+  background: rgba(17, 23, 34, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid #202A38;
+}
+
+.glass-panel-elevated {
+  background: rgba(21, 28, 39, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(34, 211, 238, 0.2);
+}
+
+/* Font helpers */
+.font-mono-nums {
+  font-family: var(--font-jetbrains-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* OpenAlgo Topbar Customizations: Remove Branding, Objects, and Data buttons */
+.oac-topbar__branding-slot,
+.oac-topbar__branding,
+.oac-topbar__objects,
+.oac-topbar__data {
+  display: none !important;
+}
+
+/* Monaco Gutter Breakpoint & Debugging Engine */
+.monaco-glyph-breakpoint {
+  background: #EF4444 !important;
+  border-radius: 50% !important;
+  width: 10px !important;
+  height: 10px !important;
+  margin-left: 5px !important;
+  margin-top: 5px !important;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.9) !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease;
+}
+
+.monaco-glyph-breakpoint:hover {
+  transform: scale(1.2);
+}
+
+.monaco-glyph-debug-arrow {
+  width: 0 !important; 
+  height: 0 !important; 
+  border-top: 5px solid transparent !important;
+  border-bottom: 5px solid transparent !important;
+  border-left: 9px solid #F59E0B !important;
+  margin-left: 6px !important;
+  margin-top: 5px !important;
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.9)) !important;
+}
+
+.monaco-debug-active-line {
+  background: rgba(245, 158, 11, 0.16) !important;
+  border-left: 3px solid #F59E0B !important;
+}
+
+.monaco-error-line {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border-left: 3px solid #EF4444 !important;
+}
+
+
+

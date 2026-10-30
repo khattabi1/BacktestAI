@@ -4,7 +4,7 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/workspace", tags=["Workspace Files"])
@@ -13,56 +13,6 @@ router = APIRouter(prefix="/workspace", tags=["Workspace Files"])
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 USERS_STORAGE_DIR = PROJECT_ROOT / "data" / "users"
 
-INITIAL_STRATEGY_TEMPLATE = '''"""
-Backtest-SI Quantitative Engine Strategy
-Architecture: Polars Vectorized Invariant Engine
-Deterministic Execution: Zero Look-Ahead Bias
-"""
-import polars as pl
-from backtest_si.strategy import BaseStrategy
-from backtest_si.types import Order, OrderSide, OrderType
-
-class QuantAlphaEngine(BaseStrategy):
-    """
-    Dual Moving Average Crossover with ATR Volatility Filter.
-    Optimized for high-frequency microsecond Parquet execution.
-    """
-    def __init__(self, fast_period: int = 14, slow_period: int = 50, atr_multiplier: float = 2.0):
-        self.fast_period = fast_period
-        self.slow_period = slow_period
-        self.atr_multiplier = atr_multiplier
-        self.prev_fast = None
-        self.prev_slow = None
-
-    def on_bar(self, bar, indicators) -> list[Order]:
-        orders = []
-        fast_sma = indicators.get("fast_sma")
-        slow_sma = indicators.get("slow_sma")
-        atr = indicators.get("atr", 1.0)
-
-        if fast_sma is None or slow_sma is None:
-            return orders
-
-        # Bullish Golden Cross
-        if self.prev_fast and self.prev_slow:
-            if self.prev_fast <= self.prev_slow and fast_sma > slow_sma:
-                sl_price = bar.close - (atr * self.atr_multiplier)
-                tp_price = bar.close + (atr * self.atr_multiplier * 2.5)
-                orders.append(
-                    Order(
-                        symbol=bar.symbol,
-                        side=OrderSide.BUY,
-                        order_type=OrderType.MARKET,
-                        quantity=1.0,
-                        stop_loss=sl_price,
-                        take_profit=tp_price,
-                    )
-                )
-
-        self.prev_fast = fast_sma
-        self.prev_slow = slow_sma
-        return orders
-'''
 
 class WorkspaceFileItem(BaseModel):
     id: str
@@ -94,22 +44,32 @@ def _sanitize_filename(filename: str) -> str:
         raise HTTPException(status_code=400, detail="Invalid filename format")
     return cleaned
 
-def _get_user_dir(username: str) -> Path:
-    safe_user = _sanitize_username(username)
-    if safe_user in ("default", "default_user"):
-        khattabi_dir = USERS_STORAGE_DIR / "khattabi"
-        if khattabi_dir.is_dir():
-            return khattabi_dir
+def _get_user_dir(request: Optional[Request] = None, username: Optional[str] = None) -> Path:
+    # 1. First priority: Authenticated user from JWT token (UUID)
+    safe_user = None
+    if request:
+        claims = getattr(request.state, "user_claims", None)
+        uid = getattr(request.state, "user_id", None) or (claims.get("sub") if claims else None)
+        if uid:
+            safe_user = str(uid)
+
+    if not safe_user and username:
+        # 2. Fallback to username parameter if provided
+        safe_user = _sanitize_username(username)
+
+    if not safe_user or safe_user in ("default", "default_user"):
+        safe_user = "default"
+
     user_dir = USERS_STORAGE_DIR / safe_user
     user_dir.mkdir(parents=True, exist_ok=True)
     return user_dir
 
 def _infer_language(filename: str) -> str:
     lower = filename.lower()
+    if lower.endswith(".mq5") or lower.endswith(".mqh") or lower.endswith(".cpp") or lower.endswith(".h"):
+        return "mql5"
     if lower.endswith(".py"):
         return "python"
-    if lower.endswith(".mq5") or lower.endswith(".cpp") or lower.endswith(".h"):
-        return "cpp"
     if lower.endswith(".json"):
         return "json"
     if lower.endswith(".md"):
@@ -125,9 +85,9 @@ def _infer_language(filename: str) -> str:
     return "plaintext"
 
 @router.get("/files", response_model=List[WorkspaceFileItem])
-def list_workspace_files(username: str = Query("default", description="Workspace username")):
+def list_workspace_files(request: Request, username: str = Query("default", description="Workspace username")):
     """List all physical files on disk in the user workspace directory."""
-    user_dir = _get_user_dir(username)
+    user_dir = _get_user_dir(request=request, username=username)
 
     existing_files = [f for f in user_dir.iterdir() if f.is_file() and not f.name.startswith(".")]
     results: List[WorkspaceFileItem] = []
@@ -152,9 +112,9 @@ def list_workspace_files(username: str = Query("default", description="Workspace
     return results
 
 @router.get("/files/{filename}", response_model=WorkspaceFileItem)
-def get_workspace_file(filename: str, username: str = Query("default")):
+def get_workspace_file(filename: str, request: Request, username: str = Query("default")):
     """Read a specific physical file from disk."""
-    user_dir = _get_user_dir(username)
+    user_dir = _get_user_dir(request=request, username=username)
     safe_name = _sanitize_filename(filename)
     file_path = user_dir / safe_name
 
@@ -174,9 +134,9 @@ def get_workspace_file(filename: str, username: str = Query("default")):
     )
 
 @router.post("/files", response_model=WorkspaceFileItem)
-def create_workspace_file(body: CreateFileRequest, username: str = Query("default")):
+def create_workspace_file(body: CreateFileRequest, request: Request, username: str = Query("default")):
     """Create a new physical file on disk."""
-    user_dir = _get_user_dir(username)
+    user_dir = _get_user_dir(request=request, username=username)
     safe_name = _sanitize_filename(body.filename)
 
     # Enforce .mq5 for strategies (drop .py)
@@ -254,9 +214,9 @@ void OnTick()
     )
 
 @router.put("/files/{filename}", response_model=WorkspaceFileItem)
-def update_workspace_file(filename: str, body: UpdateFileRequest, username: str = Query("default")):
+def update_workspace_file(filename: str, body: UpdateFileRequest, request: Request, username: str = Query("default")):
     """Update content of a physical file on disk."""
-    user_dir = _get_user_dir(username)
+    user_dir = _get_user_dir(request=request, username=username)
     safe_name = _sanitize_filename(filename)
     file_path = user_dir / safe_name
 
@@ -273,9 +233,9 @@ def update_workspace_file(filename: str, body: UpdateFileRequest, username: str 
     )
 
 @router.patch("/files/{filename}/rename", response_model=WorkspaceFileItem)
-def rename_workspace_file(filename: str, body: RenameFileRequest, username: str = Query("default")):
+def rename_workspace_file(filename: str, body: RenameFileRequest, request: Request, username: str = Query("default")):
     """Rename a physical file on disk."""
-    user_dir = _get_user_dir(username)
+    user_dir = _get_user_dir(request=request, username=username)
     old_safe = _sanitize_filename(filename)
     new_safe = _sanitize_filename(body.new_filename)
 
@@ -315,12 +275,12 @@ def rename_workspace_file(filename: str, body: RenameFileRequest, username: str 
     )
 
 @router.delete("/files/{filename}")
-def delete_workspace_file(filename: str, username: str = Query("default")):
+def delete_workspace_file(filename: str, request: Request, username: str = Query("default")):
     """
     Soft-delete a physical file by archiving it into the hidden .archive/ directory.
     Prevents accidental data loss and ensures historical strategy results never become orphaned.
     """
-    user_dir = _get_user_dir(username)
+    user_dir = _get_user_dir(request=request, username=username)
     safe_name = _sanitize_filename(filename)
     file_path = user_dir / safe_name
 
@@ -346,9 +306,9 @@ def delete_workspace_file(filename: str, username: str = Query("default")):
     raise HTTPException(status_code=404, detail=f"File '{safe_name}' not found")
 
 @router.post("/files/{filename}/restore", response_model=WorkspaceFileItem)
-def restore_workspace_file(filename: str, username: str = Query("default")):
+def restore_workspace_file(filename: str, request: Request, username: str = Query("default")):
     """Restore a soft-deleted file from .archive back to the active workspace."""
-    user_dir = _get_user_dir(username)
+    user_dir = _get_user_dir(request=request, username=username)
     safe_name = _sanitize_filename(filename)
     archive_dir = user_dir / ".archive"
     archive_path = archive_dir / safe_name

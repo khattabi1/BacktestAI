@@ -16,16 +16,15 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 import uuid
 
 from pathlib import Path
-import shutil
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status, Request
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 import redis.exceptions
 
 from packages.agent.src.core.harness import AgentHarness, _safe_print
 from packages.agent.src.core.types import AgentState, EventType, TrajectoryEvent, utc_now_iso
 from packages.agent.src.adapters.llm import create_llm_adapter
-from packages.agent.src.storage.sqlite import SQLiteSessionStorage
+from packages.agent.src.storage.postgres import PostgresSessionStorage
 from packages.agent.src.tools.strategy import register_strategy_tools
 from packages.agent.src.tools.execution import register_execution_tools
 from packages.agent.src.tools.analytical import register_analytical_tools
@@ -47,7 +46,7 @@ ALLOWED_EXTENSIONS = {
 }
 
 # Global storage and runtime registry
-_storage = SQLiteSessionStorage()
+_storage = PostgresSessionStorage()
 MAX_ACTIVE_HARNESSES = 50
 HARNESS_IDLE_TTL_SECONDS = 1800.0  # 30 minutes
 
@@ -299,7 +298,7 @@ def build_context_envelope(
     header_prefix = f"\n\n{manifest.to_compact_header()}" if manifest and hasattr(manifest, "to_compact_header") else ""
     ctx_info = f"{header_prefix}\n\n[ACTIVE WORKSPACE CONTEXT: Strategy='{strategy}', Version='{ver_clean}', Version_Tests_Count={version_tests_count}, Next_Test_Number={next_test_number}]"
     ctx_info += "\n[IMPORTANT: This active strategy context applies strictly to modifications and tests for this specific strategy. If the user explicitly asks to brainstorm or develop a brand new, different strategy, synthesize a brand new distinct file and DO NOT overwrite this strategy.]"
-    if viewing_file and viewing_file != strategy and viewing_file != f"{strategy}.mq5" and viewing_file != f"{strategy}.py":
+    if viewing_file and viewing_file != strategy and viewing_file != f"{strategy}.mq5":
         ctx_info += f"\n[OPEN EDITOR REFERENCE: The trader currently has '{viewing_file}' open in their editor tab for reference, while actively developing '{strategy}'. Do NOT modify '{viewing_file}' unless explicitly requested.]"
     if telemetry:
         try:
@@ -522,17 +521,26 @@ def get_available_providers():
     }
 
 
+def _extract_effective_user(request: Request, user_id: Optional[str] = None) -> str:
+    claims = getattr(request.state, "user_claims", None)
+    uid = getattr(request.state, "user_id", None) or (claims.get("sub") if claims else None)
+    if uid:
+        return str(uid)
+    return user_id or "default"
+
+
 @router.post("/sessions", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
-def create_session(req: CreateSessionRequest):
+def create_session(req: CreateSessionRequest, request: Request):
     """Creates a new agent intelligence session."""
     session_id = f"sess_{uuid.uuid4().hex[:12]}"
-    harness = _get_or_create_harness(session_id, user_id=req.user_id)
+    effective_user = _extract_effective_user(request, req.user_id)
+    harness = _get_or_create_harness(session_id, user_id=effective_user)
     harness.session.title = req.title or "New Strategy Session"
     _storage.save_session(harness.session)
 
     return SessionResponse(
         session_id=session_id,
-        user_id=req.user_id,
+        user_id=effective_user,
         title=harness.session.title,
         state=harness.session.state.value,
         created_at=harness.session.created_at,
@@ -542,14 +550,21 @@ def create_session(req: CreateSessionRequest):
 
 
 @router.get("/sessions", response_model=List[Dict[str, Any]])
-def list_sessions(user_id: Optional[str] = Query(None)):
+def list_sessions(request: Request, user_id: Optional[str] = Query(None)):
     """Lists saved agent sessions (all if user_id is omitted or for specified user)."""
-    return _storage.list_user_sessions(user_id=user_id)
+    effective_user = _extract_effective_user(request, user_id)
+    return _storage.list_user_sessions(user_id=effective_user)
 
 
 @router.patch("/sessions/{session_id}")
-def update_session(session_id: str, req: UpdateSessionRequest):
+def update_session(session_id: str, req: UpdateSessionRequest, request: Request):
     """Updates session metadata such as conversation title."""
+    session = _storage.load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    effective_user = _extract_effective_user(request)
+    if session.user_id != effective_user and effective_user not in ("default", "default_user"):
+        raise HTTPException(status_code=403, detail="Forbidden: Session belongs to another user.")
     success = _storage.update_session_title(session_id, req.title)
     if not success:
         raise HTTPException(status_code=404, detail="Session not found.")
@@ -577,11 +592,14 @@ def sanitize_user_message_content(content: str) -> str:
 
 
 @router.get("/sessions/{session_id}")
-def get_session(session_id: str):
+def get_session(session_id: str, request: Request):
     """Retrieves full session history, CoT thoughts, and pending interactions."""
     session = _storage.load_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
+    effective_user = _extract_effective_user(request)
+    if session.user_id != effective_user and effective_user not in ("default", "default_user"):
+        raise HTTPException(status_code=403, detail="Forbidden: Session belongs to another user.")
 
     sanitized_history = []
     for msg in session.history:
@@ -603,8 +621,14 @@ def get_session(session_id: str):
 
 
 @router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_session(session_id: str):
+def delete_session(session_id: str, request: Request):
     """Permanently deletes an agent research session and its history."""
+    session = _storage.load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    effective_user = _extract_effective_user(request)
+    if session.user_id != effective_user and effective_user not in ("default", "default_user"):
+        raise HTTPException(status_code=403, detail="Forbidden: Cannot delete another user's session.")
     _active_harnesses.pop(session_id, None)
     _harness_last_accessed.pop(session_id, None)
     _in_memory_locks.pop(session_id, None)
@@ -676,16 +700,16 @@ async def pump_events_with_keepalive(
                     break
                 if isinstance(item, Exception):
                     raise item
-
-                event: TrajectoryEvent = item
-                payload_str = json.dumps({
-                    "event_type": event.event_type.value,
-                    "step_index": event.step_index,
-                    "payload": event.payload,
-                    "timestamp": event.timestamp_utc,
-                })
-                yield f"data: {payload_str}\n\n"
-                await asyncio.sleep(0.002)
+                if isinstance(item, TrajectoryEvent):
+                    event = item
+                    payload_str = json.dumps({
+                        "event_type": event.event_type.value,
+                        "step_index": event.step_index,
+                        "payload": event.payload,
+                        "timestamp": event.timestamp_utc,
+                    })
+                    yield f"data: {payload_str}\n\n"
+                    await asyncio.sleep(0.002)
             except asyncio.TimeoutError:
                 yield ": keepalive\n\n"
     finally:
@@ -698,14 +722,14 @@ async def pump_events_with_keepalive(
 
 
 @router.post("/chat")
-async def chat_stream(req: ChatRequest):
+async def chat_stream(req: ChatRequest, request: Request):
     """
     Server-Sent Events (SSE) streaming endpoint for agent conversation.
     Streams thought deltas, assistant messages, and tool events in real time.
     """
     harness = _get_or_create_harness(
         req.session_id,
-        user_id=req.user_id or "default_user",
+        user_id=_extract_effective_user(request, req.user_id),
         provider=req.provider,
         model=req.model,
         think_level=req.think_level,
@@ -821,7 +845,7 @@ async def chat_stream(req: ChatRequest):
         event_generator(),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-cache, no-transform", "Content-Type": "text/event-stream; charset=utf-8",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
         },
@@ -829,7 +853,7 @@ async def chat_stream(req: ChatRequest):
 
 
 @router.post("/resume")
-async def resume_stream(req: ResumeRequest):
+async def resume_stream(req: ResumeRequest, request: Request):
     """
     Resumes an agent session waiting on Human-in-the-Loop user clarification or approval.
     """
@@ -851,7 +875,7 @@ async def resume_stream(req: ResumeRequest):
 
     harness = _get_or_create_harness(
         req.session_id,
-        user_id=req.user_id or "default_user",
+        user_id=_extract_effective_user(request, req.user_id),
         provider=req.provider,
         model=req.model,
         think_level=req.think_level,
@@ -891,7 +915,7 @@ async def resume_stream(req: ResumeRequest):
         event_generator(),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-cache, no-transform", "Content-Type": "text/event-stream; charset=utf-8",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
         },
@@ -994,17 +1018,18 @@ async def get_uploaded_file(file_id: str):
 
 
 @router.post("/sessions/{session_id}/turn/async", status_code=status.HTTP_202_ACCEPTED)
-async def run_turn_async(session_id: str, req: AsyncTurnRequest):
+async def run_turn_async(session_id: str, req: AsyncTurnRequest, request: Request):
     """
     Dispatches a heavy agent reasoning turn to the ARQ Redis background worker pool.
     Returns immediately with a job_id for non-blocking client interaction.
     """
     try:
+        effective_user = _extract_effective_user(request, req.user_id)
         job_id = await job_queue.enqueue(
             "run_agent_turn_job",
             session_id=session_id,
             prompt=req.prompt,
-            user_id=req.user_id,
+            user_id=effective_user,
             provider=req.provider,
         )
         return {

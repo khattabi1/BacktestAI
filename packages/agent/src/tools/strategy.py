@@ -125,12 +125,12 @@ async def read_strategy(strategy_id: str) -> Dict[str, Any]:
                     code_str = ""
             if not code_str:
                 code_str = (
-                    "from backtest_si.strategy import BaseStrategy, IndicatorBuffer\n"
-                    "from backtest_si.types import Bar, OrderSide\n\n"
-                    f"class {meta.name.replace(' ', '')}(BaseStrategy):\n"
-                    "    def on_bar(self, bar: Bar, positions, equity):\n"
-                    "        # Strategy execution logic\n"
-                    "        pass\n"
+                    "//+------------------------------------------------------------------+\n"
+                    f"//| {meta.name} Expert Advisor\n"
+                    "//+------------------------------------------------------------------+\n"
+                    "#property strict\n\n"
+                    "int OnInit() { return(INIT_SUCCEEDED); }\n"
+                    "void OnTick() { /* Quantitative Strategy Execution Logic */ }\n"
                 )
 
             return {
@@ -138,7 +138,7 @@ async def read_strategy(strategy_id: str) -> Dict[str, Any]:
                 "strategy_id": meta.id,
                 "name": meta.name,
                 "slug": meta.id,
-                "language": "python",
+                "language": "mql5",
                 "code": code_str,
                 "description": meta.description,
                 "default_parameters": {p.name: p.default for p in meta.parameters},

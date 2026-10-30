@@ -44,14 +44,14 @@ def get_database_urls() -> tuple[str, str]:
 
     if env_sync and env_sync.startswith("postgresql"):
         if env_sync.startswith("postgresql://"):
-            sync_url = env_sync.replace("postgresql://", "postgresql+psycopg://", 1)
+            sync_url = env_sync.replace("postgresql://", "postgresql+psycopg2://", 1)
         else:
             sync_url = env_sync
             
         if env_async and "asyncpg" in env_async:
             async_url = env_async
         else:
-            async_url = sync_url.replace("postgresql+psycopg://", "postgresql+asyncpg://", 1)
+            async_url = sync_url.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
             
         return sync_url, async_url
 
