@@ -352,7 +352,8 @@ def get_user_analytics(timeframe: str = Query("7d")):
 
 def verify_admin_password_or_raise(conn, admin_password: Optional[str], admin_email: Optional[str] = None):
     """
-    Validates that the supplied password matches an authorized administrator account in PostgreSQL.
+    Validates that the supplied password matches an authorized administrator account directly in the database.
+    Strictly compares the hashed password against real active admin records in the database.
     """
     if not admin_password or not admin_password.strip():
         raise HTTPException(
@@ -363,21 +364,22 @@ def verify_admin_password_or_raise(conn, admin_password: Optional[str], admin_em
     from apps.api.src.db.init_db import hash_password
     input_hash = hash_password(admin_password.strip())
 
-    # Look up admin accounts in PostgreSQL
-    admin_rows = conn.execute(
-        text("SELECT id, email, password_hash, role FROM users WHERE role = 'admin'")
-    ).mappings().all()
+    # Look up real active admin accounts in the database
+    if admin_email and admin_email.strip():
+        admin_rows = conn.execute(
+            text("SELECT id, email, password_hash, role FROM users WHERE role = 'admin' AND is_active = 1 AND LOWER(email) = LOWER(:email)"),
+            {"email": admin_email.strip()}
+        ).mappings().all()
+    else:
+        admin_rows = conn.execute(
+            text("SELECT id, email, password_hash, role FROM users WHERE role = 'admin' AND is_active = 1")
+        ).mappings().all()
 
     matched = False
     for a in admin_rows:
         if a["password_hash"] == input_hash:
             matched = True
             break
-
-    # Master admin / dev password fallback
-    master_pass = os.environ.get("ADMIN_MASTER_PASSWORD", "admin2026!")
-    if not matched and admin_password.strip() in [master_pass, "admin2026!", "admin123456"]:
-        matched = True
 
     if not matched:
         raise HTTPException(
