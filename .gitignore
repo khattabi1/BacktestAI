@@ -69,3 +69,6 @@ test/
 
 # Personal local docs (not pushed)
 docs/
+
+# Local agent rules (not pushed)
+CLAUDE.md
