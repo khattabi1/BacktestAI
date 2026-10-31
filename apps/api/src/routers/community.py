@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import uuid
+import logging
 import re
 
 from fastapi import APIRouter, HTTPException, Depends, Query, Path as FastAPIPath
@@ -36,6 +37,8 @@ def get_backtest_service() -> BacktestService:
         _backtest_service = BacktestService()
     return _backtest_service
 
+logger = logging.getLogger("backtest_ai.routers.community")
+
 router = APIRouter(prefix="/community", tags=["Quant Community"])
 
 
@@ -51,7 +54,7 @@ class Verify5YRequest(BaseModel):
 
 
 class Verify5YResponse(BaseModel):
-    status: str  # "VERIFIED" | "REJECTED"
+    status: str  # "VERIFIED" | "REJECTED" | "FAILED"
     security_passed: bool
     ai_report: str
     cheat_signals_detected: int
@@ -320,7 +323,7 @@ def verify_5_year_cloud_benchmark(
             return Verify5YResponse(
                 status="VERIFIED",
                 security_passed=True,
-                ai_report=audit.get("report", "AI Scanner: 0 hardcoded timestamp trades detected. Passed security tolerance."),
+                ai_report=audit.get("report", "Code scan passed. 5-year backtest completed."),
                 cheat_signals_detected=audit.get("signals_count", 0),
                 metrics=metrics,
                 cached=True,
@@ -332,7 +335,7 @@ def verify_5_year_cloud_benchmark(
     passed, signal_count, details = analyze_code_for_hardcoded_past_trades(code_content)
 
     if not passed:
-        report = f"SECURITY ALERT: Rejected by AI Anti-Scam filter. Detected {signal_count} indicators of hardcoded past trade executions ({'; '.join(details)}). Tolerance is 2."
+        report = f"SECURITY ALERT: Rejected by the code scan. Detected {signal_count} indicators of hardcoded past trade executions ({'; '.join(details)}). Tolerance is 2."
         return Verify5YResponse(
             status="REJECTED",
             security_passed=False,
@@ -342,15 +345,16 @@ def verify_5_year_cloud_benchmark(
             cached=False,
         )
 
-    # 3. Compute 5-Year Institutional High-Tick Benchmark via Backtest Engine
+    # 3. Compute the 5-year benchmark with a real backtest. No result means no verification.
     primary_symbol = req.symbols[0] if req.symbols else "XAUUSD"
     verified_metrics = None
+    failure_reason = ""
 
     try:
         engine = get_backtest_service()
         target_strat = req.strategy_name
-        if not target_strat.endswith(".ex5") and not target_strat.endswith(".py"):
-            target_strat = f"{target_strat}.py"
+        if not target_strat.endswith(".ex5") and not target_strat.endswith(".mq5"):
+            target_strat = f"{target_strat}.mq5"
 
         sim_req = BacktestRunRequest(
             strategy_id=target_strat,
@@ -361,7 +365,7 @@ def verify_5_year_cloud_benchmark(
             config=SimulationConfigModel(initial_capital=100000.0)
         )
         sim_res = engine.run_backtest(sim_req)
-        if sim_res and sim_res.metrics:
+        if sim_res and sim_res.metrics and sim_res.metrics.total_trades > 0:
             m = sim_res.metrics
             wr = m.win_rate if m.win_rate > 1 else m.win_rate * 100
             verified_metrics = {
@@ -375,44 +379,25 @@ def verify_5_year_cloud_benchmark(
                 "verifiedAt": datetime.now(timezone.utc).isoformat(),
                 "primarySymbol": primary_symbol,
             }
-    except Exception:
-        pass
+        else:
+            failure_reason = "The 5-year backtest produced no trades."
+    except Exception as exc:
+        logger.error(f"[verify-5y] Backtest failed for {req.strategy_name} v{req.version_num}: {exc}")
+        failure_reason = f"The 5-year backtest could not run: {exc}"
 
     if not verified_metrics:
-        base_net = 18450
-        base_dd = 6.8
-        base_wr = 62.4
-        base_pf = 2.14
-
-        if req.initial_metrics:
-            try:
-                if "netProfit" in req.initial_metrics and float(req.initial_metrics["netProfit"]) > 0:
-                    base_net = round(float(req.initial_metrics["netProfit"]) * 3.8)
-                if "maxDrawdown" in req.initial_metrics:
-                    base_dd = round(abs(float(req.initial_metrics["maxDrawdown"])), 1)
-                if "winRate" in req.initial_metrics:
-                    wr_val = float(req.initial_metrics["winRate"])
-                    base_wr = round(wr_val if wr_val > 1 else wr_val * 100, 1)
-                if "profitFactor" in req.initial_metrics:
-                    base_pf = round(float(req.initial_metrics["profitFactor"]), 2)
-            except Exception:
-                pass
-
-        verified_metrics = {
-            "netProfit": max(12400, base_net),
-            "maxDrawdown": min(14.5, max(4.2, base_dd)),
-            "winRate": min(74.0, max(52.0, base_wr)),
-            "profitFactor": max(1.75, base_pf),
-            "totalTrades": 482,
-            "sharpeRatio": round(1.82 + (base_wr - 50.0) * 0.02, 2),
-            "period": "2021-01-01 → 2026-01-01 (5 Years)",
-            "verifiedAt": datetime.now(timezone.utc).isoformat(),
-            "primarySymbol": primary_symbol,
-        }
+        return Verify5YResponse(
+            status="FAILED",
+            security_passed=True,
+            ai_report=f"Verification not completed. {failure_reason} Nothing was cached; fix the issue and try again.",
+            cheat_signals_detected=signal_count,
+            metrics={},
+            cached=False,
+        )
 
     ai_audit = {
-        "report": f"AI Scanner: Clean causal logic verified. 0 hardcoded timestamp trades detected. Passed security tolerance (0/2). Calibrated on 5Y cloud benchmark across {req.symbols}.",
-        "signals_count": 0,
+        "report": f"Code scan: {signal_count} hardcoded-timestamp signal(s) found (tolerance 2). 5-year backtest completed on {primary_symbol}.",
+        "signals_count": signal_count,
         "details": details,
     }
 
@@ -433,7 +418,7 @@ def verify_5_year_cloud_benchmark(
         status="VERIFIED",
         security_passed=True,
         ai_report=ai_audit["report"],
-        cheat_signals_detected=0,
+        cheat_signals_detected=signal_count,
         metrics=verified_metrics,
         cached=False,
     )

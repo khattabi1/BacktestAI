@@ -13,6 +13,7 @@ import {
   Layers,
   Image as ImageIcon,
   Search,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   verify5YearBenchmark,
@@ -97,6 +98,7 @@ export function PublishStrategyModal({
   const [verifyProgress, setVerifyProgress] = useState(0);
   const [verifyStepText, setVerifyStepText] = useState('');
   const [verifiedMetrics, setVerifiedMetrics] = useState<Verified5YMetrics | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState(false);
@@ -212,6 +214,7 @@ export function PublishStrategyModal({
 
   const run5YearVerification = async () => {
     setIsVerifying(true);
+    setVerifyError(null);
     setVerifyProgress(20);
     setVerifyStepText('Executing causal logic audit across DuckDB historical parquet...');
 
@@ -240,6 +243,7 @@ export function PublishStrategyModal({
       setIsVerifying(false);
 
       if (result.status === 'VERIFIED') {
+        setVerifyError(null);
         setVerifiedMetrics(result.metrics);
         try {
           localStorage.setItem(cacheKey, JSON.stringify(result.metrics));
@@ -248,26 +252,14 @@ export function PublishStrategyModal({
         }
       } else {
         setVerifiedMetrics(null);
+        setVerifyError(result.ai_report);
       }
-    } catch {
+    } catch (err) {
       clearTimeout(timer1);
       clearTimeout(timer2);
       setIsVerifying(false);
-      // Fallback robust metrics
-      const fallbackMetrics: Verified5YMetrics = {
-        netProfit: 70110,
-        maxDrawdown: 6.8,
-        winRate: 62.4,
-        profitFactor: 2.14,
-        totalTrades: 1240,
-        sharpeRatio: 2.35,
-        period: '2021-01-01 → 2026-01-01 (5 Years)',
-        verifiedAt: new Date().toISOString(),
-      };
-      setVerifiedMetrics(fallbackMetrics);
-      try {
-        localStorage.setItem(cacheKey, JSON.stringify(fallbackMetrics));
-      } catch {}
+      setVerifiedMetrics(null);
+      setVerifyError(err instanceof Error ? err.message : 'Verification failed. Please try again.');
     }
   };
 
@@ -723,6 +715,14 @@ export function PublishStrategyModal({
                     style={{ width: `${verifyProgress}%` }}
                   />
                 </div>
+              </div>
+            )}
+
+            {/* Verification failed or was rejected: show the reason, never placeholder metrics */}
+            {!isVerifying && !verifiedMetrics && verifyError && (
+              <div className="flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[11px] text-rose-300">
+                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                <span>{verifyError}</span>
               </div>
             )}
 

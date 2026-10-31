@@ -4,11 +4,24 @@ Tests feed retrieval, 5Y cloud benchmark, AI Anti-Cheat detector, star ratings,
 forking, zero-leak cloud sandbox, and direct messaging.
 """
 
+import uuid
+from types import SimpleNamespace
+from unittest.mock import patch
+
 import pytest
 from fastapi.testclient import TestClient
 from apps.api.src.main import app
 
 client = TestClient(app)
+
+
+def _delete_benchmark_cache(strategy_name: str) -> None:
+    from sqlalchemy import delete
+    from apps.api.src.db.connection import SessionLocal
+    from apps.api.src.db.models import CommunityBenchmarkCache
+    with SessionLocal() as db:
+        db.execute(delete(CommunityBenchmarkCache).where(CommunityBenchmarkCache.strategy_name == strategy_name))
+        db.commit()
 
 
 def test_get_community_posts():
@@ -42,17 +55,26 @@ def test_verify_5y_benchmark_clean_code():
         }
     }
     """
+    fake_result = SimpleNamespace(metrics=SimpleNamespace(
+        net_profit=4200.0, max_drawdown_pct=7.3, win_rate=0.58,
+        profit_factor=1.6, total_trades=310, sharpe_ratio=1.2,
+    ))
     payload = {
-        "strategy_name": "clean_trend_v1",
+        # unique name so the benchmark cache never short-circuits this test
+        "strategy_name": f"clean_trend_{uuid.uuid4().hex[:8]}",
         "version_num": 1,
         "code": clean_code,
         "symbols": ["XAUUSD"],
         "initial_metrics": {"netProfit": 4000, "winRate": 0.60, "maxDrawdown": 5.5}
     }
-    response = client.post("/api/v1/community/verify-5y", json=payload)
+    with patch("apps.api.src.routers.community.get_backtest_service") as svc:
+        svc.return_value.run_backtest.return_value = fake_result
+        response = client.post("/api/v1/community/verify-5y", json=payload)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "VERIFIED"
+    assert data["metrics"]["totalTrades"] == 310  # metrics come from the backtest, not constants
+    _delete_benchmark_cache(payload["strategy_name"])
     assert data["security_passed"] is True
     assert data["cheat_signals_detected"] == 0
     assert "metrics" in data
@@ -178,3 +200,21 @@ def test_direct_messaging():
     messages = get_res.json()["messages"]
     assert len(messages) >= 1
     assert any(m["content"] == send_payload["content"] for m in messages)
+
+
+def test_verify_5y_failed_backtest_is_never_verified():
+    """If the real backtest cannot run, the endpoint must return FAILED with no metrics."""
+    payload = {
+        "strategy_name": f"broken_strategy_{uuid.uuid4().hex[:8]}",
+        "version_num": 1,
+        "code": "input int InpPeriod = 20; void OnTick() {}",
+        "symbols": ["XAUUSD"],
+    }
+    with patch("apps.api.src.routers.community.get_backtest_service") as svc:
+        svc.return_value.run_backtest.side_effect = RuntimeError("MT5 worker unavailable")
+        response = client.post("/api/v1/community/verify-5y", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "FAILED"
+    assert data["metrics"] == {}
+    assert "MT5 worker unavailable" in data["ai_report"]
