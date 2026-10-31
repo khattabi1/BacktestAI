@@ -12,6 +12,7 @@ import { OrderPod } from '@/components/tradingview/OrderPod';
 import { ChartOrderOverlay } from '@/components/tradingview/ChartOrderOverlay';
 import { BottomOrdersBlotter } from '@/components/tradingview/BottomOrdersBlotter';
 import { SessionDoneDialog } from '@/components/session/SessionDoneDialog';
+import { AIWatcherSlot } from '@/components/tradingview/AIWatcherSlot';
 
 // Dynamically import OpenAlgoChart to prevent SSR canvas issues
 const OpenAlgoChart = dynamic(
@@ -59,6 +60,8 @@ function ActiveWorkspaceSession({ session }: { session: BacktestSession }) {
 
   // Chart Coordinate & Layout API (for interactive drag & drop lines)
   const [chartApi, setChartApi] = useState<OpenAlgoChartApi | null>(null);
+  const chartApiRef = useRef<OpenAlgoChartApi | null>(null);
+  chartApiRef.current = chartApi;
 
   // Asset Specifications & Formats
   const isGold = symbol.toUpperCase().includes('XAU') || symbol.toUpperCase().includes('GOLD');
@@ -147,7 +150,7 @@ function ActiveWorkspaceSession({ session }: { session: BacktestSession }) {
 
     // Safety guard: never flush an unanchored Day 1 timestamp over a forward checkpoint
     if (initialCheckpoint && !isAnchoredRef.current && prog.lastReplayTime < initialCheckpoint) {
-      return;
+
     }
 
     saveSessionProgress(
@@ -269,6 +272,50 @@ function ActiveWorkspaceSession({ session }: { session: BacktestSession }) {
     [symbol, defaultDecimals, pipSize, currentBalance, session.id]
   );
 
+  // Capture TradeCard snapshot for AI Watcher coach & cloner
+  const recordTradeCardForAIWatcher = useCallback(
+    (closed: Trade) => {
+      const store = useSessionStore.getState();
+      const snapshot = chartApiRef.current?.getCanvasSnapshot?.() || null;
+      const tid = closed.tradeId || (closed as any).id;
+      const cardPayload = {
+        id: tid,
+        trade_id: tid,
+        symbol: closed.symbol || symbol,
+        direction: (closed.side === 'LONG' ? 'BUY' : 'SELL') as 'BUY' | 'SELL',
+        entry_price: closed.entryPrice,
+        exit_price: closed.exitPrice,
+        stop_loss: closed.stopLoss,
+        take_profit: closed.takeProfit,
+        quantity: closed.quantity,
+        lot_size: closed.quantity,
+        pnl: closed.pnl,
+        canvas_snapshot_base64: snapshot || undefined,
+        screenshot_base64: snapshot || undefined,
+        entry_time: closed.entryTime,
+        exit_time: closed.exitTime,
+        status: 'RAW',
+      };
+      store.addAITradeCard(session.id, cardPayload);
+
+      fetch('/api/v1/ai-watcher/trade-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: session.id, trade: cardPayload }),
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            console.error('[AI Watcher] trade-card upload failed with HTTP', res.status, await res.text());
+          } else {
+            const data = await res.json();
+            console.log('[AI Watcher] trade-card screenshot persisted:', data);
+          }
+        })
+        .catch((err) => console.error('[AI Watcher] Upload snapshot network error:', err));
+    },
+    [session.id, symbol]
+  );
+
   // Close Position Handler (Full)
   const handleClosePosition = useCallback(
     (positionId: string) => {
@@ -285,13 +332,14 @@ function ActiveWorkspaceSession({ session }: { session: BacktestSession }) {
       if (closed) {
         setActivePositions((prev) => prev.filter((p) => p.id !== positionId));
         setTrades((prev) => [...prev, closed]);
+        recordTradeCardForAIWatcher(closed);
         const updatedSession = store.sessions.find((s) => s.id === session.id);
         if (updatedSession) {
           setCurrentBalance(updatedSession.currentBalance);
         }
       }
     },
-    [currentPrice, session.id]
+    [currentPrice, session.id, recordTradeCardForAIWatcher]
   );
 
   // Partial Close Position Handler
@@ -317,6 +365,7 @@ function ActiveWorkspaceSession({ session }: { session: BacktestSession }) {
 
       if (closedTrade) {
         setTrades((prev) => [...prev, closedTrade]);
+        recordTradeCardForAIWatcher(closedTrade);
         const remainingQty = Number((pos.quantity - closeLots).toFixed(2));
         if (remainingQty <= 0.001) {
           setActivePositions((prev) => prev.filter((p) => p.id !== positionId));
@@ -332,7 +381,7 @@ function ActiveWorkspaceSession({ session }: { session: BacktestSession }) {
         }
       }
     },
-    [currentPrice, session.id]
+    [currentPrice, session.id, recordTradeCardForAIWatcher]
   );
 
   // Cancel Pending Order Handler
@@ -381,7 +430,7 @@ function ActiveWorkspaceSession({ session }: { session: BacktestSession }) {
           if (!initialCheckpoint || state.currentTime >= initialCheckpoint) {
             isAnchoredRef.current = true;
           } else {
-            return;
+      
           }
         }
 
@@ -428,6 +477,7 @@ function ActiveWorkspaceSession({ session }: { session: BacktestSession }) {
               if (closed) {
                 setActivePositions((prev) => prev.filter((p) => p.id !== pos.id));
                 setTrades((prev) => [...prev, closed]);
+        recordTradeCardForAIWatcher(closed);
                 const updatedSession = store.sessions.find((s) => s.id === session.id);
                 if (updatedSession) {
                   setCurrentBalance(updatedSession.currentBalance);
@@ -490,7 +540,7 @@ function ActiveWorkspaceSession({ session }: { session: BacktestSession }) {
         }
       }
     },
-    [bars.length, flushProgress, initialCheckpoint, isGold, isCrypto, isJpy, defaultDecimals, session.id, sessionStatus]
+    [bars.length, flushProgress, initialCheckpoint, isGold, isCrypto, isJpy, defaultDecimals, session.id, sessionStatus, recordTradeCardForAIWatcher]
   );
 
   // Pull market bars through ReplayDataManager
@@ -798,14 +848,12 @@ function ActiveWorkspaceSession({ session }: { session: BacktestSession }) {
               </div>
 
               {/* Bottom ~50% Free Space (Reserved for future ideas / clean breathing room) */}
-              <div className="flex-1 min-h-[160px] rounded-2xl border border-dashed border-[#1A2538]/60 bg-[#080D15]/30 flex flex-col items-center justify-center p-4 text-center select-none">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  Workspace Expansion Slot
-                </span>
-                <span className="text-[9px] text-slate-400 mt-1 max-w-[200px]">
-                  Reserved space for upcoming custom metrics & strategy modules.
-                </span>
-              </div>
+              <AIWatcherSlot
+                sessionId={session.id}
+                symbol={symbol}
+                timeframe={currentTimeframe}
+                trades={trades}
+              />
             </div>
           ) : (
             <div className="flex flex-col items-center py-3 h-full justify-between select-none">

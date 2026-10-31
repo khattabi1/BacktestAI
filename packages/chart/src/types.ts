@@ -35,6 +35,7 @@ export interface OpenAlgoChartApi {
   getPlotRect: () => { left: number; top: number; width: number; height: number } | null;
   getChartElement: () => HTMLElement | null;
   subscribeScaleChange: (cb: () => void) => () => void;
+  getCanvasSnapshot?: () => string | null;
 }
 
 export interface OpenAlgoChartProps {

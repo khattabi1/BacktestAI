@@ -13,6 +13,7 @@ from sqlalchemy import (
     Text,
     ForeignKey,
     Index,
+    UniqueConstraint,
     func
 )
 from sqlalchemy.orm import (
@@ -102,7 +103,7 @@ class BacktestSession(Base):
     updated_at: Mapped[str] = mapped_column(String(32), server_default=func.now(), default=lambda: datetime.now(timezone.utc).isoformat())
 
     user: Mapped[Optional["User"]] = relationship(back_populates="backtest_sessions")
-    trades: Mapped[List["Trade"]] = relationship(back_populates="session")
+    trades: Mapped[List["Trade"]] = relationship(back_populates="session", cascade="all, delete-orphan")
 
 # -----------------------------------------------------------------------------
 # 4. Strategies & Versions
@@ -178,7 +179,7 @@ class Trade(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     backtest_run_id: Mapped[Optional[str]] = mapped_column(String(64), ForeignKey("backtest_runs.id", ondelete="CASCADE"), nullable=True, index=True)
-    session_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("backtest_sessions.id", ondelete="SET NULL"), nullable=True, index=True)
+    session_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("backtest_sessions.id", ondelete="CASCADE"), nullable=True, index=True)
     trade_id: Mapped[str] = mapped_column(String(64), nullable=False)
     symbol: Mapped[str] = mapped_column(String(32), nullable=False)
     side: Mapped[str] = mapped_column(String(8), nullable=False)
@@ -194,6 +195,8 @@ class Trade(Base):
     stop_loss: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     take_profit: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     exit_reason: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    screenshot_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    trade_card_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     backtest_run: Mapped[Optional["BacktestRun"]] = relationship(back_populates="trades")
     session: Mapped[Optional["BacktestSession"]] = relationship(back_populates="trades")
@@ -348,6 +351,7 @@ class AgentSession(Base):
 
 class AgentMessage(Base):
     __tablename__ = "agent_messages"
+    __table_args__ = (UniqueConstraint("session_id", "msg_index", name="uq_agent_messages_sess_idx"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     session_id: Mapped[str] = mapped_column(String(64), ForeignKey("agent_sessions.id", ondelete="CASCADE"), nullable=False, index=True)

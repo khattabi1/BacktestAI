@@ -41,9 +41,16 @@ class PostgresSessionStorage:
         """Ensure necessary indexes exist in PostgreSQL."""
         try:
             with self.engine.begin() as conn:
+                # Deduplicate any stray duplicate session_id, msg_index rows
+                conn.execute(
+                    text("""
+                        DELETE FROM agent_messages a USING agent_messages b
+                        WHERE a.id < b.id AND a.session_id = b.session_id AND a.msg_index = b.msg_index;
+                    """)
+                )
                 conn.execute(
                     text(
-                        "CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_messages_sess_idx "
+                        "CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_messages_sess_idx "
                         "ON agent_messages(session_id, msg_index);"
                     )
                 )

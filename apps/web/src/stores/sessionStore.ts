@@ -150,6 +150,12 @@ interface SessionState {
   updatePositionSLTP: (positionId: string, sl?: number, tp?: number, sessionId?: string) => void;
   addPendingOrder: (order: Omit<PendingOrder, 'id'>, sessionId?: string) => PendingOrder | null;
   cancelPendingOrder: (orderId: string, sessionId?: string) => void;
+  isAIWatcherEnabled: boolean;
+  setAIWatcherEnabled: (enabled: boolean) => void;
+  aiTradeCards: Record<string, any[]>;
+  addAITradeCard: (sessionId: string, card: any) => void;
+  aiCoachFeedback: Record<string, any>;
+  setAICoachFeedback: (sessionId: string, feedback: any) => void;
 }
 
 // Clean legacy sessions from storage if present
@@ -176,6 +182,34 @@ export const useSessionStore = create<SessionState>()(
 
       setNewSessionModalOpen: (open: boolean) => {
         set({ isNewSessionModalOpen: open });
+      },
+
+      isAIWatcherEnabled: true,
+      setAIWatcherEnabled: (enabled: boolean) => {
+        set({ isAIWatcherEnabled: enabled });
+      },
+
+      aiTradeCards: {},
+      addAITradeCard: (sessionId: string, card: any) => {
+        set((state) => {
+          const prev = state.aiTradeCards[sessionId] || [];
+          return {
+            aiTradeCards: {
+              ...state.aiTradeCards,
+              [sessionId]: [...prev, card],
+            },
+          };
+        });
+      },
+
+      aiCoachFeedback: {},
+      setAICoachFeedback: (sessionId: string, feedback: any) => {
+        set((state) => ({
+          aiCoachFeedback: {
+            ...state.aiCoachFeedback,
+            [sessionId]: feedback,
+          },
+        }));
       },
 
       getActiveSession: () => {
@@ -413,6 +447,7 @@ export const useSessionStore = create<SessionState>()(
 
         const closedTrade: Trade = {
           tradeId: `TRD-${Date.now().toString(36).toUpperCase()}`,
+          id: `TRD-${Date.now().toString(36).toUpperCase()}`,
           symbol: pos.symbol,
           side: pos.side,
           entryTime: pos.entryTime,
@@ -426,6 +461,8 @@ export const useSessionStore = create<SessionState>()(
           slippage: 0,
           exitReason: reason,
           holdingPeriodBars: 1,
+          stopLoss: pos.stopLoss,
+          takeProfit: pos.takeProfit,
         };
 
         const updatedTrades = [...(session.trades || []), closedTrade];
@@ -527,6 +564,8 @@ export const useSessionStore = create<SessionState>()(
           slippage: 0,
           exitReason: reason,
           holdingPeriodBars: 1,
+          stopLoss: pos.stopLoss,
+          takeProfit: pos.takeProfit,
           tag: `Partial (${normalizedCloseQty} / ${pos.quantity} Lots)`,
         };
 
@@ -628,6 +667,8 @@ export const useSessionStore = create<SessionState>()(
             slippage: 0,
             exitReason: reason,
             holdingPeriodBars: 1,
+          stopLoss: pos.stopLoss,
+          takeProfit: pos.takeProfit,
           });
         }
 

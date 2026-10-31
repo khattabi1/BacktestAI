@@ -45,6 +45,7 @@ export interface Position {
 
 export interface Trade {
   tradeId: string;
+  id?: string;
   symbol: string;
   side: PositionSide;
   entryTime: string;
@@ -58,6 +59,8 @@ export interface Trade {
   slippage: number;
   exitReason: 'TP' | 'SL' | 'SIGNAL' | 'CLOSE_END' | 'MANUAL' | 'PARTIAL';
   holdingPeriodBars: number;
+  stopLoss?: number;
+  takeProfit?: number;
   tag?: string;
 }
 

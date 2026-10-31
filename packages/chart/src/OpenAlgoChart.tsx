@@ -859,6 +859,52 @@ const OpenAlgoChartComponent: React.FC<OpenAlgoChartProps> = ({
           scaleListeners.current.delete(cb);
         };
       },
+      getCanvasSnapshot: () => {
+        try {
+          if (widgetRef.current && typeof (widgetRef.current as any).chart?.takeScreenshot === 'function') {
+            const chartCanvas = (widgetRef.current as any).chart.takeScreenshot();
+            if (chartCanvas && typeof chartCanvas.toDataURL === 'function') {
+              return chartCanvas.toDataURL('image/webp', 0.85);
+            }
+          }
+        } catch (err) {
+          console.warn('[OpenAlgoChart] widget.chart.takeScreenshot failed:', err);
+        }
+
+        // Fallback: composite all visible canvases from containerRef
+        if (!containerRef.current) return null;
+        const canvases = Array.from(containerRef.current.querySelectorAll('canvas'));
+        if (canvases.length === 0) return null;
+
+        try {
+          let maxWidth = 0;
+          let maxHeight = 0;
+          for (const c of canvases) {
+            if (c.width > maxWidth) maxWidth = c.width;
+            if (c.height > maxHeight) maxHeight = c.height;
+          }
+          if (maxWidth === 0 || maxHeight === 0) return null;
+
+          const composite = document.createElement('canvas');
+          composite.width = maxWidth;
+          composite.height = maxHeight;
+          const ctx = composite.getContext('2d');
+          if (!ctx) return null;
+
+          ctx.fillStyle = '#080D15';
+          ctx.fillRect(0, 0, maxWidth, maxHeight);
+
+          for (const c of canvases) {
+            if (c.width > 0 && c.height > 0) {
+              ctx.drawImage(c, 0, 0, maxWidth, maxHeight);
+            }
+          }
+          return composite.toDataURL('image/webp', 0.85);
+        } catch (fallbackErr) {
+          console.warn('[OpenAlgoChart] Canvas fallback failed:', fallbackErr);
+          return null;
+        }
+      },
     };
     onChartApiRef.current?.(api);
 

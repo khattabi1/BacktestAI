@@ -90,6 +90,7 @@ class Message(BaseModel):
     thought: Optional[str] = None
     tool_calls: Optional[list[ToolCall]] = None
     tool_call_id: Optional[str] = None
+    media: Optional[list[dict[str, Any]]] = None
     timestamp_utc: str = Field(default_factory=utc_now_iso)
 
 

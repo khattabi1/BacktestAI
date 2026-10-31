@@ -129,7 +129,7 @@ CREATE INDEX IF NOT EXISTS idx_backtest_runs_strat ON backtest_runs(strategy_id)
 CREATE TABLE IF NOT EXISTS trades (
     id TEXT PRIMARY KEY,
     backtest_run_id TEXT REFERENCES backtest_runs(id) ON DELETE CASCADE,
-    session_id TEXT REFERENCES backtest_sessions(id) ON DELETE SET NULL,
+    session_id TEXT REFERENCES backtest_sessions(id) ON DELETE CASCADE,
     trade_id TEXT NOT NULL,
     symbol TEXT NOT NULL,
     side TEXT NOT NULL,
@@ -144,7 +144,9 @@ CREATE TABLE IF NOT EXISTS trades (
     swap REAL NOT NULL DEFAULT 0.0,
     stop_loss REAL,
     take_profit REAL,
-    exit_reason TEXT
+    exit_reason TEXT,
+    screenshot_path TEXT,
+    trade_card_json TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_trades_run ON trades(backtest_run_id);
@@ -154,7 +156,7 @@ CREATE INDEX IF NOT EXISTS idx_trades_session ON trades(session_id);
 CREATE TABLE IF NOT EXISTS journal_entries (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    session_id TEXT REFERENCES backtest_sessions(id) ON DELETE SET NULL,
+    session_id TEXT REFERENCES backtest_sessions(id) ON DELETE CASCADE,
     backtest_run_id TEXT REFERENCES backtest_runs(id) ON DELETE SET NULL,
     title TEXT NOT NULL,
     hypothesis TEXT,

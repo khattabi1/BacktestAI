@@ -1,4 +1,4 @@
-﻿"""
+"""
 Multi-provider LLM Adapter for DeepSeek Agent Harness (DSH).
 Supports OpenRouter for Development and Anthropic (Claude Opus 5.5) for Production.
 """
@@ -1327,6 +1327,11 @@ def create_llm_adapter(
         target_model = model or os.environ.get("ANTHROPIC_MODEL", "claude-opus-5.5")
         logger.info(f"Initializing Anthropic Claude Adapter with model: {target_model}")
         return AnthropicAdapter(model=target_model)
+    elif selected_provider in ("meta", "meta-ai", "meta_models"):
+        from .meta_models import MetaModelAdapter, MUSE_SPARK_CONTRIBUTOR_MODEL
+        target_model = model or os.environ.get("META_MODEL_EXECUTOR", MUSE_SPARK_CONTRIBUTOR_MODEL)
+        logger.info(f"Initializing Meta Model Adapter with model: {target_model}")
+        return MetaModelAdapter(default_model=target_model)
     else:
         m_lower = (model or "").lower()
         if any(k in m_lower for k in ("glm", "deepseek", "qwen")):

@@ -1565,16 +1565,167 @@ class DatabaseRepository:
             return [_row_to_dict(r) for r in cursor.fetchall()]
 
     def delete_replay_session(self, session_id: str) -> bool:
+        # 1. Purge in-memory AI Watcher cache
+        try:
+            from apps.api.src.services.ai_watcher_service import ai_watcher_service
+            ai_watcher_service.clear_session(session_id)
+        except Exception:
+            pass
+
+        # 2. Purge screenshot files from disk (data/uploads/screenshots/{session_id})
+        try:
+            from apps.api.src.services.screenshot_storage import delete_session_screenshots
+            delete_session_screenshots(session_id)
+        except Exception:
+            pass
+
+        # 3. Cascade delete from PostgreSQL / SQLite
         if self.use_postgres:
             with engine.begin() as conn:
+                conn.execute(text("DELETE FROM trades WHERE session_id = :id"), {"id": session_id})
+                conn.execute(text("DELETE FROM journal_entries WHERE session_id = :id"), {"id": session_id})
                 res = conn.execute(text("DELETE FROM backtest_sessions WHERE id = :id"), {"id": session_id})
                 return res.rowcount > 0
 
         with get_db_connection(self.db_path) as conn:
+            self._ensure_trades_schema(conn)
             cursor = conn.cursor()
+            cursor.execute("DELETE FROM trades WHERE session_id = ?;", (session_id,))
+            cursor.execute("DELETE FROM journal_entries WHERE session_id = ?;", (session_id,))
             cursor.execute("DELETE FROM backtest_sessions WHERE id = ?;", (session_id,))
             conn.commit()
             return cursor.rowcount > 0
+
+    def _ensure_trades_schema(self, conn) -> None:
+        cursor = conn.cursor()
+        cols = [r[1] for r in cursor.execute("PRAGMA table_info(trades);").fetchall()]
+        new_cols = [
+            ("screenshot_path", "TEXT"),
+            ("trade_card_json", "TEXT"),
+        ]
+        for col_name, col_type in new_cols:
+            if col_name not in cols:
+                try:
+                    cursor.execute(f"ALTER TABLE trades ADD COLUMN {col_name} {col_type};")
+                except Exception:
+                    pass
+        conn.commit()
+
+    def save_session_trade(self, session_id: str, trade_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Saves a single trade with native .webp screenshot on disk and path in PostgreSQL."""
+        import json
+        tid = trade_data.get("id") or str(uuid.uuid4())
+        trade_id = str(trade_data.get("trade_id") or tid)
+        symbol = str(trade_data.get("symbol", "XAUUSD"))
+        side = str(trade_data.get("side", trade_data.get("direction", "BUY"))).upper()
+        entry_time = str(trade_data.get("entry_time") or datetime.now(timezone.utc).isoformat())
+        exit_time = str(trade_data.get("exit_time") or datetime.now(timezone.utc).isoformat())
+        entry_price = float(trade_data.get("entry_price", 0.0))
+        exit_price = float(trade_data.get("exit_price", 0.0))
+        quantity = float(trade_data.get("quantity", trade_data.get("lot_size", 1.0)))
+        pnl = float(trade_data.get("pnl", 0.0))
+        pnl_pct = float(trade_data.get("pnl_pct", trade_data.get("pnl_percent", 0.0)))
+        fee = float(trade_data.get("fee", 0.0))
+        swap = float(trade_data.get("swap", 0.0))
+        stop_loss = float(trade_data["stop_loss"]) if trade_data.get("stop_loss") is not None else None
+        take_profit = float(trade_data["take_profit"]) if trade_data.get("take_profit") is not None else None
+        exit_reason = str(trade_data.get("exit_reason", "MANUAL"))
+
+        # Save screenshot file to disk: data/uploads/screenshots/{session_id}/{trade_id}.webp
+        screenshot_path = trade_data.get("screenshot_path")
+        if not screenshot_path:
+            b64 = trade_data.get("screenshot_base64") or trade_data.get("canvas_snapshot_base64")
+            if b64:
+                from apps.api.src.services.screenshot_storage import save_screenshot_file
+                screenshot_path = save_screenshot_file(session_id, trade_id, b64)
+
+        card_json = trade_data.get("trade_card_json")
+        if not card_json and trade_data.get("trade_card"):
+            card_json = json.dumps(trade_data["trade_card"])
+
+        if self.use_postgres:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("""
+                        INSERT INTO trades (
+                            id, session_id, trade_id, symbol, side,
+                            entry_time, entry_price, exit_time, exit_price,
+                            quantity, pnl, pnl_pct, fee, swap, stop_loss, take_profit,
+                            exit_reason, screenshot_path, trade_card_json
+                        )
+                        VALUES (
+                            :id, :session_id, :trade_id, :symbol, :side,
+                            :entry_time, :entry_price, :exit_time, :exit_price,
+                            :quantity, :pnl, :pnl_pct, :fee, :swap, :stop_loss, :take_profit,
+                            :exit_reason, :screenshot_path, :trade_card_json
+                        )
+                        ON CONFLICT (id) DO UPDATE SET
+                            exit_price = EXCLUDED.exit_price,
+                            exit_time = EXCLUDED.exit_time,
+                            pnl = EXCLUDED.pnl,
+                            screenshot_path = EXCLUDED.screenshot_path,
+                            trade_card_json = EXCLUDED.trade_card_json
+                    """),
+                    {
+                        "id": tid, "session_id": session_id, "trade_id": trade_id, "symbol": symbol, "side": side,
+                        "entry_time": entry_time, "entry_price": entry_price, "exit_time": exit_time, "exit_price": exit_price,
+                        "quantity": quantity, "pnl": pnl, "pnl_pct": pnl_pct, "fee": fee, "swap": swap,
+                        "stop_loss": stop_loss, "take_profit": take_profit, "exit_reason": exit_reason,
+                        "screenshot_path": screenshot_path, "trade_card_json": card_json,
+                    }
+                )
+                row = conn.execute(text("SELECT * FROM trades WHERE id = :id"), {"id": tid}).mappings().first()
+                return _row_to_dict(row) if row else {}
+
+        with get_db_connection(self.db_path) as conn:
+            self._ensure_trades_schema(conn)
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO trades (
+                    id, session_id, trade_id, symbol, side,
+                    entry_time, entry_price, exit_time, exit_price,
+                    quantity, pnl, pnl_pct, fee, swap, stop_loss, take_profit,
+                    exit_reason, screenshot_path, trade_card_json
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    tid, session_id, trade_id, symbol, side,
+                    entry_time, entry_price, exit_time, exit_price,
+                    quantity, pnl, pnl_pct, fee, swap, stop_loss, take_profit,
+                    exit_reason, screenshot_path, card_json
+                )
+            )
+            conn.commit()
+            cursor.execute("SELECT * FROM trades WHERE id = ?;", (tid,))
+            return _row_to_dict(cursor.fetchone())
+
+    def get_session_trades(self, session_id: str) -> List[Dict[str, Any]]:
+        """Returns all trades for a session including screenshots and trade cards."""
+        if self.use_postgres:
+            with engine.connect() as conn:
+                rows = conn.execute(text("SELECT * FROM trades WHERE session_id = :sid ORDER BY entry_time ASC"), {"sid": session_id}).mappings().all()
+                return [_row_to_dict(r) for r in rows]
+
+        with get_db_connection(self.db_path) as conn:
+            self._ensure_trades_schema(conn)
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM trades WHERE session_id = ? ORDER BY entry_time ASC;", (session_id,))
+            return [_row_to_dict(r) for r in cursor.fetchall()]
+
+    def get_session_trades(self, session_id: str) -> List[Dict[str, Any]]:
+        """Returns all trades for a session including screenshots and trade cards."""
+        if self.use_postgres:
+            with engine.connect() as conn:
+                rows = conn.execute(text("SELECT * FROM trades WHERE session_id = :sid ORDER BY entry_time ASC"), {"sid": session_id}).mappings().all()
+                return [_row_to_dict(r) for r in rows]
+
+        with get_db_connection(self.db_path) as conn:
+            self._ensure_trades_schema(conn)
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM trades WHERE session_id = ? ORDER BY entry_time ASC;", (session_id,))
+            return [_row_to_dict(r) for r in cursor.fetchall()]
 
     # ---------------------------------------------------------
     # 5. Research Journal Entries Repository
