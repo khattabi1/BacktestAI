@@ -1,5 +1,5 @@
 """
-ARQ Distributed Worker for Backtest-SI.
+ARQ Distributed Worker for BacktestAI.
 Executes compute-heavy quantitative backtests, parameter sweeps, and agent turns
 in isolated background worker processes connected via Redis.
 """
@@ -10,7 +10,7 @@ import os
 from typing import Any, Dict, Optional
 from arq.connections import RedisSettings
 
-logger = logging.getLogger("backtest_si.api.worker")
+logger = logging.getLogger("backtest_ai.api.worker")
 
 DEFAULT_REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
 
@@ -38,7 +38,7 @@ async def ping_job(ctx: Dict[Any, Any]) -> Dict[str, Any]:
     logger.info("[ARQ Worker] Ping job executed.")
     return {
         "status": "pong",
-        "worker": "backtest-si-worker",
+        "worker": "backtest-ai-worker",
     }
 
 

@@ -664,7 +664,7 @@ def run_cloud_sandbox_preview(
                 "expectancy": round(m.expectancy, 1),
                 "testedSymbol": req.symbol,
                 "testedPeriod": f"{req.start_date} → {req.end_date}",
-                "cloudEngine": "BacktestSI Deterministic Engine (DuckDB Isolated Node)",
+                "cloudEngine": "BacktestAI Deterministic Engine (DuckDB Isolated Node)",
                 "verified": True,
             }
     except Exception:
@@ -682,7 +682,7 @@ def run_cloud_sandbox_preview(
         "expectancy": 39.7,
         "testedSymbol": req.symbol,
         "testedPeriod": f"{req.start_date} → {req.end_date}",
-        "cloudEngine": "BacktestSI Deterministic Engine (DuckDB Isolated Node)",
+        "cloudEngine": "BacktestAI Deterministic Engine (DuckDB Isolated Node)",
         "verified": True,
     }
 

@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from domain.models import BacktestRunRequest
 from ..job_queue import job_queue, JobStatusResponse
 
-logger = logging.getLogger("backtest_si.api.routers.jobs")
+logger = logging.getLogger("backtest_ai.api.routers.jobs")
 
 router = APIRouter(prefix="/jobs", tags=["Jobs & Background Workers"])
 

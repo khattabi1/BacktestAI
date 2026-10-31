@@ -1,5 +1,5 @@
 """
-MT5 Worker Pool Orchestration Service for Backtest-SI.
+MT5 Worker Pool Orchestration Service for BacktestAI.
 Manages a pool of 5 isolated MetaTrader 5 portable instances.
 Implements sequential leasing fallback (1 ➔ 2 ➔ 3 ➔ 4 ➔ 5) and an Async FIFO queue.
 """
@@ -14,9 +14,9 @@ import time
 from typing import Any, AsyncGenerator, Dict, List, Optional
 from pydantic import BaseModel, Field
 
-logger = logging.getLogger("backtest_si.api.mt5_pool")
+logger = logging.getLogger("backtest_ai.api.mt5_pool")
 
-# Default project root: BacktestSI/
+# Default project root: BacktestAI/
 DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_WORKERS_DIR = DEFAULT_PROJECT_ROOT / "mt5_workers"
 

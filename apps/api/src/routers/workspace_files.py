@@ -160,10 +160,10 @@ def create_workspace_file(body: CreateFileRequest, request: Request, username: s
         if safe_name.endswith(".mq5") or safe_name.endswith(".mqh"):
             content = f"""//+------------------------------------------------------------------+
 //|                                                     {safe_name} |
-//|                                  Copyright 2026, BacktestSI Quant |
+//|                                  Copyright 2026, BacktestAI Quant |
 //|                                             https://backtestsi.ai |
 //+------------------------------------------------------------------+
-#property copyright "BacktestSI Quant"
+#property copyright "BacktestAI Quant"
 #property link      "https://backtestsi.ai"
 #property version   "1.00"
 #property strict

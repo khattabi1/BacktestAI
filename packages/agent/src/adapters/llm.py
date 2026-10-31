@@ -396,8 +396,8 @@ class OpenRouterAdapter(BaseLLMAdapter):
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://backtest-si.internal",
-            "X-Title": "Backtest-SI Quantitative Agent",
+            "HTTP-Referer": "https://backtest-ai.internal",
+            "X-Title": "BacktestAI Quantitative Agent",
         }
 
         payload: Dict[str, Any] = {

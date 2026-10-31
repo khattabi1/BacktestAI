@@ -325,7 +325,7 @@ export default function SupportPage() {
                     rel="noreferrer"
                     className="text-[11px] font-mono text-cyan-accent hover:underline flex items-center gap-1"
                   >
-                    discord.gg/backtest-si →
+                    discord.gg/backtest-ai →
                   </a>
                 </div>
               </div>

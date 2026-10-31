@@ -99,11 +99,11 @@ print(f"Execution Latency: {report.elapsed_ms}ms")`
           title: 'CLI Fast Launch',
           language: 'bash',
           code: `# Initialize new workspace
-$ npx backtest-si init my-quant-lab
+$ npx backtest-ai init my-quant-lab
 $ cd my-quant-lab
 
 # Run deterministic backtest against local Parquet store
-$ backtest-si run --strategy=strategies/ema_cross.py --symbol=NQ --from=2023-01-01 --to=2025-10-01 --slippage=0.5`
+$ backtest-ai run --strategy=strategies/ema_cross.py --symbol=NQ --from=2023-01-01 --to=2025-10-01 --slippage=0.5`
         }
       ],
       parameters: [
@@ -145,7 +145,7 @@ $ backtest-si run --strategy=strategies/ema_cross.py --symbol=NQ --from=2023-01-
       ],
       bestPractices: [
         'Always verify dataset timestamp monotonic ordering before launching long sweeps.',
-        'Use the built-in dataset validator: `backtest-si data verify --symbol NQ` to check for gap artifacts.'
+        'Use the built-in dataset validator: `backtest-ai data verify --symbol NQ` to check for gap artifacts.'
       ]
     }
   },

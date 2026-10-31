@@ -1,5 +1,5 @@
 """
-FastAPI Router for Backtest-SI Agent Intelligence Layer (DSH Harness).
+FastAPI Router for BacktestAI Agent Intelligence Layer (DSH Harness).
 Provides Server-Sent Events (SSE) streaming for real-time Chain-of-Thought
 and tool executions, session persistence, and Human-in-the-Loop interaction.
 """
@@ -34,7 +34,7 @@ from packages.agent.src.tools.mt5_mcp import register_mt5_mcp_tools
 from packages.agent.src.sandbox.gates import ApprovalGateManager
 from ..job_queue import job_queue
 
-logger = logging.getLogger("backtest_si.api.agent")
+logger = logging.getLogger("backtest_ai.api.agent")
 
 router = APIRouter(prefix="/agent", tags=["SI Agent Intelligence"])
 
@@ -652,7 +652,6 @@ def delete_session(session_id: str, request: Request):
     return None
 
 
-@router.post("/sessions/{session_id}/cancel")
 @router.post("/cancel")
 async def cancel_session_execution(
     session_id: Optional[str] = None,
@@ -946,7 +945,13 @@ async def cancel_session(session_id: str):
     if harness:
         harness.cancel()
         _safe_print(f"\033[1;33m[AGENT API] Session {session_id} cancelled via API.\033[0m")
-    
+    else:
+        session = _storage.load_session(session_id)
+        if session:
+            session.state = AgentState.DONE
+            session.pending_interaction = None
+            _storage.save_session(session)
+
     # 1. Proactively cancel the running asyncio Task if any
     task = _active_session_tasks.pop(session_id, None)
     if task and not task.done():

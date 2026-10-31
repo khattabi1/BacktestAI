@@ -1,5 +1,5 @@
 ﻿"""
-Institutional Authentication & User Session Router for Backtest-SI.
+Institutional Authentication & User Session Router for BacktestAI.
 Provides zero-trust, JWT-backed cryptographic authentication for quantitative researchers,
 workspaces, and Google OAuth integration.
 """

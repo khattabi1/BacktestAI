@@ -6,7 +6,7 @@ from typing import Dict, Any, Type, List, Optional
 from backtest_si.strategy import BaseStrategy
 from domain.models import StrategyMetadata
 
-logger = logging.getLogger("backtest_si.strategy_registry")
+logger = logging.getLogger("backtest_ai.strategy_registry")
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 USERS_STORAGE_DIR = PROJECT_ROOT / "data" / "users"
 

@@ -1,5 +1,5 @@
 """
-Standardized relational SQL DDL schema for Backtest-SI.
+Standardized relational SQL DDL schema for BacktestAI.
 Designed for 100% compatibility with SQLite (local development) and seamless future upgrade to PostgreSQL.
 """
 

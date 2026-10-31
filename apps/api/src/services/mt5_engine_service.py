@@ -1,7 +1,7 @@
 """
-Native MT5 Automation Engine for Backtest-SI.
+Native MT5 Automation Engine for BacktestAI.
 Provides self-contained, broker-grade MQL5 compilation, Strategy Tester execution,
-and report ingestion directly inside BacktestSI without external dependencies.
+and report ingestion directly inside BacktestAI without external dependencies.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ import MetaTrader5 as mt5
 
 from .mt5_pool_service import MT5WorkerInstance, mt5_pool
 
-logger = logging.getLogger("backtest_si.api.mt5_engine")
+logger = logging.getLogger("backtest_ai.api.mt5_engine")
 
 
 class MT5EngineService:

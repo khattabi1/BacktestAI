@@ -8,7 +8,7 @@ import duckdb
 import polars as pl
 from backtest_si.types import Bar
 
-logger = logging.getLogger("backtest_si.api.market_data")
+logger = logging.getLogger("backtest_ai.api.market_data")
 
 class MarketDataService:
     def __init__(self, data_root: str = "data"):

@@ -1,6 +1,6 @@
 """
 Type definitions for BacktestAI Agent Harness (DSH Architecture).
-Directly ported from institutional BacktestSI agent engine.
+Directly ported from institutional BacktestAI agent engine.
 """
 
 from __future__ import annotations

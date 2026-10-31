@@ -113,7 +113,7 @@ async def test_worker_executes_ping_job():
 
     status = await job_queue.get_status(job_id)
     assert status.status == "complete"
-    assert status.result == {"status": "pong", "worker": "backtest-si-worker"}
+    assert status.result == {"status": "pong", "worker": "backtest-ai-worker"}
     assert status.error is None
     await worker.close()
 

@@ -590,10 +590,10 @@ const OpenAlgoChartComponent: React.FC<OpenAlgoChartProps> = ({
       `);
 
       // Ensure style is also injected directly into document.head to bypass OpenAlgo cache
-      let headStyle = document.getElementById('backtest-si-broker-clock-style');
+      let headStyle = document.getElementById('backtest-ai-broker-clock-style');
       if (!headStyle) {
         headStyle = document.createElement('style');
-        headStyle.id = 'backtest-si-broker-clock-style';
+        headStyle.id = 'backtest-ai-broker-clock-style';
         document.head.appendChild(headStyle);
       }
       headStyle.textContent = `

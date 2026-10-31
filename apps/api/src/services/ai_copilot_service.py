@@ -1,5 +1,5 @@
 """
-Backtest-SI AI Quant Co-Pilot Service
+BacktestAI AI Quant Co-Pilot Service
 Natural Language Strategy Generation, Automated Code Generation,
 and Deterministic Python <-> MQL5 Cross-Language Translation.
 """
@@ -382,7 +382,7 @@ class AICopilotService:
 
     def _generate_python_trend(self, fast: int, slow: int, atr_m: float, risk: float) -> str:
         return f'''"""
-Backtest-SI Quantitative Engine Strategy
+BacktestAI Quantitative Engine Strategy
 Architecture: Polars Vectorized Invariant Engine
 Strategy: Dual Moving Average Crossover (Golden Cross)
 """
@@ -435,11 +435,11 @@ class QuantAlphaEngine(BaseStrategy):
 
     def _generate_mql5_trend(self, fast: int, slow: int, atr_m: float, risk: float) -> str:
         return f'''//+------------------------------------------------------------------+
-//|                                     Backtest-SI Quant EA (MQL5)   |
+//|                                     BacktestAI Quant EA (MQL5)   |
 //|                        Super Intelligent Backtesting Studio      |
 //|                                  https://backtestsi.com          |
 //+------------------------------------------------------------------+
-#property copyright "Backtest-SI Quantitative Lab"
+#property copyright "BacktestAI Quantitative Lab"
 #property link      "https://backtestsi.com"
 #property version   "1.00"
 #property strict
@@ -500,14 +500,14 @@ void OnTick()
       double sl  = ask - (atr[0] * InpAtrMultiplier);
       double tp  = ask + (atr[0] * InpAtrMultiplier * 2.5);
       
-      Print("Backtest-SI Signal: BUY order triggered at ", ask);
+      Print("BacktestAI Signal: BUY order triggered at ", ask);
    }}
 }}
 '''
 
     def _generate_python_rsi(self, rsi_p: int, atr_m: float, risk: float) -> str:
         return f'''"""
-Backtest-SI Quantitative Engine Strategy
+BacktestAI Quantitative Engine Strategy
 Strategy: RSI Mean Reversion with Dynamic ATR Trailing Stops
 """
 import polars as pl
@@ -557,11 +557,11 @@ class RSIMeanReversionStrategy(BaseStrategy):
 
     def _generate_mql5_rsi(self, rsi_p: int, atr_m: float, risk: float) -> str:
         return f'''//+------------------------------------------------------------------+
-//|                                  Backtest-SI RSI Reversion (MQL5)|
+//|                                  BacktestAI RSI Reversion (MQL5)|
 //|                        Super Intelligent Backtesting Studio      |
 //|                                  https://backtestsi.com          |
 //+------------------------------------------------------------------+
-#property copyright "Backtest-SI Quantitative Lab"
+#property copyright "BacktestAI Quantitative Lab"
 #property link      "https://backtestsi.com"
 #property version   "1.00"
 #property strict
@@ -618,7 +618,7 @@ void OnTick()
 
     def _generate_python_bollinger(self, bb_p: int, atr_m: float, risk: float) -> str:
         return f'''"""
-Backtest-SI Quantitative Engine Strategy
+BacktestAI Quantitative Engine Strategy
 Strategy: Bollinger Bands Volatility Breakout
 """
 import polars as pl
@@ -667,11 +667,11 @@ class BollingerBreakoutStrategy(BaseStrategy):
 
     def _generate_mql5_bollinger(self, bb_p: int, atr_m: float, risk: float) -> str:
         return f'''//+------------------------------------------------------------------+
-//|                             Backtest-SI Bollinger Breakout (MQL5)|
+//|                             BacktestAI Bollinger Breakout (MQL5)|
 //|                        Super Intelligent Backtesting Studio      |
 //|                                  https://backtestsi.com          |
 //+------------------------------------------------------------------+
-#property copyright "Backtest-SI Quantitative Lab"
+#property copyright "BacktestAI Quantitative Lab"
 #property link      "https://backtestsi.com"
 #property version   "1.00"
 #property strict
@@ -728,7 +728,7 @@ void OnTick()
 
     def _generate_python_macd(self, atr_m: float, risk: float) -> str:
         return f'''"""
-Backtest-SI Quantitative Engine Strategy
+BacktestAI Quantitative Engine Strategy
 Strategy: MACD Momentum Divergence
 """
 import polars as pl
@@ -776,11 +776,11 @@ class MACDMomentumStrategy(BaseStrategy):
 
     def _generate_mql5_macd(self, atr_m: float, risk: float) -> str:
         return f'''//+------------------------------------------------------------------+
-//|                                  Backtest-SI MACD Momentum (MQL5)|
+//|                                  BacktestAI MACD Momentum (MQL5)|
 //|                        Super Intelligent Backtesting Studio      |
 //|                                  https://backtestsi.com          |
 //+------------------------------------------------------------------+
-#property copyright "Backtest-SI Quantitative Lab"
+#property copyright "BacktestAI Quantitative Lab"
 #property link      "https://backtestsi.com"
 #property version   "1.00"
 #property strict

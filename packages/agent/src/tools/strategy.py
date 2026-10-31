@@ -326,10 +326,10 @@ async def generate_mql5_ea(
     mql5_code = f"""//+------------------------------------------------------------------+
 //|                                             {clean_name}.mq5 |
 //|                                     BacktestAI Autonomous EA    |
-//|                                     https://backtest-si.internal |
+//|                                     https://backtest-ai.internal |
 //+------------------------------------------------------------------+
 #property copyright "BacktestAI Quant Engine"
-#property link      "https://backtest-si.internal"
+#property link      "https://backtest-ai.internal"
 #property version   "1.00"
 #property strict
 

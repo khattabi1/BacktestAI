@@ -1,5 +1,5 @@
 """
-ARQ Distributed Job Queue Manager for Backtest-SI.
+ARQ Distributed Job Queue Manager for BacktestAI.
 Provides connection pooling, background job enqueueing, and status telemetry.
 """
 
@@ -12,7 +12,7 @@ from arq import create_pool
 from arq.connections import ArqRedis, RedisSettings
 from arq.jobs import JobStatus, Job
 
-logger = logging.getLogger("backtest_si.api.job_queue")
+logger = logging.getLogger("backtest_ai.api.job_queue")
 
 DEFAULT_REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
 

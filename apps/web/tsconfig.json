@@ -21,9 +21,9 @@
     "paths": {
       "@/*": ["./src/*"],
       "@backtest-ai/domain": ["../../packages/domain/src/index.ts"],
-      "@backtest-si/domain": ["../../packages/domain/src/index.ts"],
+      "@backtest-ai/domain": ["../../packages/domain/src/index.ts"],
       "@backtest-ai/chart": ["../../packages/chart/src/index.ts"],
-      "@backtest-si/chart": ["../../packages/chart/src/index.ts"]
+      "@backtest-ai/chart": ["../../packages/chart/src/index.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

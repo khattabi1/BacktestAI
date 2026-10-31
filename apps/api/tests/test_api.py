@@ -44,7 +44,7 @@ def test_health_check(client):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
-    assert data["service"] in ["backtest-ai-api", "backtest-si-api"]
+    assert data["service"] in ["backtest-ai-api", "backtest-ai-api"]
     assert "timestamp" in data
 
 def test_get_symbols(client):

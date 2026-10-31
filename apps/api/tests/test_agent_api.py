@@ -1,5 +1,5 @@
 """
-Unit tests for Backtest-SI Agent API router (apps/api/src/routers/agent.py).
+Unit tests for BacktestAI Agent API router (apps/api/src/routers/agent.py).
 Tests session lifecycle, tool inventory, and chat streaming endpoints.
 """
 
