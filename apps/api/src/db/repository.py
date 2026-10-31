@@ -12,7 +12,7 @@ from typing import Dict, Any, List, Optional
 from pathlib import Path
 
 from apps.api.src.db.connection import get_db_connection, get_db_path, engine, is_postgres
-from apps.api.src.db.init_db import hash_password
+from apps.api.src.db.init_db import hash_password, verify_password, is_legacy_hash
 from sqlalchemy import text
 
 
@@ -133,10 +133,12 @@ class DatabaseRepository:
         user = self.get_user_by_email(email)
         if not user or not user["is_active"]:
             return None
-        if user["password_hash"] == hash_password(password):
-            user_clean = {k: v for k, v in user.items() if k != "password_hash"}
-            return user_clean
-        return None
+        if not verify_password(password, user["password_hash"]):
+            return None
+        if is_legacy_hash(user["password_hash"]):
+            # Upgrade old SHA-256 hashes to PBKDF2 on successful login
+            self.update_user_password(user["id"], password)
+        return {k: v for k, v in user.items() if k != "password_hash"}
 
     def update_user_password(self, user_id: str, new_password: str) -> bool:
         pw_hash = hash_password(new_password)

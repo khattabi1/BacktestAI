@@ -22,7 +22,7 @@ def test_all_registered_tools_signatures_and_schemas():
     register_workspace_tools(harness, user_id="test_user")
     register_mt5_mcp_tools(harness)
 
-    assert len(harness._tools) == 57, f"Expected 57 tools (28 native + 29 MT5 MCP), got {len(harness._tools)}"
+    assert len(harness._tools) == 56, f"Expected 56 tools (28 native + 28 MT5 MCP without order_send), got {len(harness._tools)}"
 
     errors = []
     for name, tool in harness._tools.items():

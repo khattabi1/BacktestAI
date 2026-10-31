@@ -12,7 +12,7 @@ import uuid
 import logging
 import re
 
-from fastapi import APIRouter, HTTPException, Depends, Query, Path as FastAPIPath
+from fastapi import APIRouter, HTTPException, Depends, Query, Request, Path as FastAPIPath
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import select, desc, func
@@ -246,19 +246,46 @@ def get_community_posts(
 @router.post("/posts")
 def create_community_post(
     req: CreatePostRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     """Publish a new discussion post or strategy distribution release."""
     post_id = f"post_{int(datetime.now(timezone.utc).timestamp() * 1000)}"
 
+    # Author comes from the logged-in account, not from the request body
+    author_username, author_display_name = req.author_username, req.author_display_name
+    user_id = getattr(request.state, "user_id", None)
+    if user_id:
+        from apps.api.src.db.repository import db_repo
+        user = db_repo.get_user_by_id(str(user_id))
+        if user:
+            author_username = user["email"].split("@")[0]
+            author_display_name = user["full_name"]
+
     strat_data = req.strategy or {}
     symbols_json = json.dumps(strat_data.get("supportedSymbols", ["XAUUSD"]))
-    metrics_json = json.dumps(strat_data.get("metrics", {}))
+    metrics_json = "{}"
+    if strat_data.get("name"):
+        # Strategy metrics come from the server's own 5-year verification, never from the client
+        version_match = re.search(r"\d+", str(strat_data.get("version") or "1"))
+        version_num = int(version_match.group(0)) if version_match else 1
+        cached = db.scalar(
+            select(CommunityBenchmarkCache)
+            .where(CommunityBenchmarkCache.strategy_name == strat_data["name"])
+            .where(CommunityBenchmarkCache.version_num == version_num)
+            .order_by(desc(CommunityBenchmarkCache.verified_at))
+        )
+        if not cached:
+            raise HTTPException(
+                status_code=400,
+                detail="Run the 5-year verification for this strategy version before publishing it.",
+            )
+        metrics_json = cached.metrics_json
 
     new_post = CommunityPost(
         id=post_id,
-        author_username=req.author_username,
-        author_display_name=req.author_display_name,
+        author_username=author_username,
+        author_display_name=author_display_name,
         author_avatar_url=req.author_avatar_url or "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&h=120&q=80",
         author_reputation=req.author_reputation,
         author_followers_count=145,

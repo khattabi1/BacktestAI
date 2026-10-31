@@ -4,6 +4,8 @@ Initializes SQLAlchemy 2.0 tables and seeds initial institutional quant demo use
 """
 
 import hashlib
+import hmac
+import os
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -14,10 +16,42 @@ from sqlalchemy.orm import Session
 from apps.api.src.db.connection import get_db_path, get_database_url
 from apps.api.src.db.models import Base, User, Workspace
 
+PBKDF2_ITERATIONS = 600_000
+_LEGACY_SALT = "backtest_ai_quant_salt"
+
+
 def hash_password(password: str) -> str:
-    """Standard SHA-256 password hash for local SQLite database."""
-    salt = "backtest_ai_quant_salt"
-    return hashlib.sha256(f"{salt}{password}".encode('utf-8')).hexdigest()
+    """PBKDF2-HMAC-SHA256 with a random per-user salt, stored as pbkdf2_sha256$iterations$salt$hash."""
+    salt = os.urandom(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS)
+    return f"pbkdf2_sha256${PBKDF2_ITERATIONS}${salt.hex()}${digest.hex()}"
+
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    """Checks a password against a PBKDF2 hash, or against the legacy salted SHA-256 hash."""
+    if stored_hash.startswith("pbkdf2_sha256$"):
+        try:
+            _, iterations, salt_hex, digest_hex = stored_hash.split("$")
+            digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt_hex), int(iterations))
+        except ValueError:
+            return False
+        return hmac.compare_digest(digest.hex(), digest_hex)
+    legacy = hashlib.sha256(f"{_LEGACY_SALT}{password}".encode("utf-8")).hexdigest()
+    return hmac.compare_digest(legacy, stored_hash)
+
+
+def is_legacy_hash(stored_hash: str) -> bool:
+    return not stored_hash.startswith("pbkdf2_sha256$")
+
+
+def _seed_password(env_var: str, email: str) -> str:
+    """Seed account password from the environment; generate and print a random one if unset."""
+    password = os.getenv(env_var, "").strip()
+    if not password:
+        import secrets
+        password = secrets.token_urlsafe(12)
+        print(f"[Seed] {env_var} not set. Created {email} with password: {password}")
+    return password
 
 def init_database(db_path: Optional[Path] = None) -> None:
     """
@@ -61,7 +95,7 @@ def init_database(db_path: Optional[Path] = None) -> None:
             demo_user = User(
                 id=demo_user_id,
                 email="quant@backtestai.io",
-                password_hash=hash_password("quant2026"),
+                password_hash=hash_password(_seed_password("DEMO_USER_PASSWORD", "quant@backtestai.io")),
                 full_name="Senior Quant Researcher",
                 tier="pro",
                 role="user",
@@ -71,7 +105,7 @@ def init_database(db_path: Optional[Path] = None) -> None:
             admin_user = User(
                 id=admin_user_id,
                 email="admin@backtestai.io",
-                password_hash=hash_password("admin2026!"),
+                password_hash=hash_password(_seed_password("DEMO_ADMIN_PASSWORD", "admin@backtestai.io")),
                 full_name="Platform Administrator",
                 tier="enterprise",
                 role="admin",

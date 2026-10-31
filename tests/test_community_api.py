@@ -109,13 +109,15 @@ def test_verify_5y_benchmark_anti_cheat_rejection():
 
 def test_create_community_post_and_social_interactions():
     """Verify creating a post, liking, commenting, rating, and forking."""
+    strategy_name = f"gbp_sweep_{uuid.uuid4().hex[:8]}"
+
     # 1. Create a post
     post_payload = {
         "author_username": "TestQuant",
         "author_display_name": "Test Quant Analyst",
         "content": "Analyzing London session liquidity sweeps on GBPUSD. New strategy published!",
         "strategy": {
-            "name": "gbp_sweep_algo",
+            "name": strategy_name,
             "version": "v1",
             "type": "open_source",
             "price": 0,
@@ -134,9 +136,25 @@ def test_create_community_post_and_social_interactions():
             "codeSnippet": "// GBP Sweep Algo\ninput double Risk = 1.0;"
         }
     }
+    # Publishing a strategy without a server-side 5-year verification is refused
+    rejected = client.post("/api/v1/community/posts", json=post_payload)
+    assert rejected.status_code == 400
+
+    fake_result = SimpleNamespace(metrics=SimpleNamespace(
+        net_profit=9100.0, max_drawdown_pct=8.1, win_rate=0.55,
+        profit_factor=1.4, total_trades=222, sharpe_ratio=0.9,
+    ))
+    with patch("apps.api.src.routers.community.get_backtest_service") as svc:
+        svc.return_value.run_backtest.return_value = fake_result
+        verify = client.post("/api/v1/community/verify-5y", json={
+            "strategy_name": strategy_name, "version_num": 1, "code": "input double Risk = 1.0;", "symbols": ["GBPUSD"],
+        })
+    assert verify.json()["status"] == "VERIFIED"
+
     create_res = client.post("/api/v1/community/posts", json=post_payload)
     assert create_res.status_code == 200
     post_id = create_res.json()["post_id"]
+    _delete_benchmark_cache(strategy_name)
 
     # 2. Toggle like
     like_res = client.post(f"/api/v1/community/posts/{post_id}/like", json={"username": "TestQuant"})

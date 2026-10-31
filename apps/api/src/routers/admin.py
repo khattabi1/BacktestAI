@@ -361,8 +361,7 @@ def verify_admin_password_or_raise(conn, admin_password: Optional[str], admin_em
             detail="Administrator password is required to authorize privilege and tier changes."
         )
 
-    from apps.api.src.db.init_db import hash_password
-    input_hash = hash_password(admin_password.strip())
+    from apps.api.src.db.init_db import verify_password
 
     # Look up real active admin accounts in the database
     if admin_email and admin_email.strip():
@@ -377,7 +376,7 @@ def verify_admin_password_or_raise(conn, admin_password: Optional[str], admin_em
 
     matched = False
     for a in admin_rows:
-        if a["password_hash"] == input_hash:
+        if verify_password(admin_password.strip(), a["password_hash"]):
             matched = True
             break
 

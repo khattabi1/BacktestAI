@@ -38,13 +38,12 @@ PUBLIC_PATHS = {
     "/api/v1/auth/google",
     "/api/v1/auth/forgot-password",
     "/api/v1/auth/reset-password",
-    "/api/v1/community/posts",
     "/api/v1/market-data/broker-symbols-catalog",
-    "/api/v1/community/sandbox-preview",
-    "/api/v1/community/verify-5y",
-    "/api/v1/ai-watcher/diagnose",
-    "/api/v1/ai-watcher/trade-card",
-    "/api/v1/ai-cloner/clone",
+}
+
+# Read-only paths that are public for GET requests only (writes still require a login)
+PUBLIC_GET_PATHS = {
+    "/api/v1/community/posts",
 }
 
 class InstitutionalAuthMiddleware(BaseHTTPMiddleware):
@@ -62,6 +61,8 @@ class InstitutionalAuthMiddleware(BaseHTTPMiddleware):
 
         # 2. Bypass public / health / documentation / auth endpoints
         if path in PUBLIC_PATHS or path.startswith("/docs") or path.startswith("/redoc") or path.startswith("/openapi.json"):
+            return await call_next(request)
+        if request.method == "GET" and path in PUBLIC_GET_PATHS:
             return await call_next(request)
 
         # 3. Only enforce authentication on /api/v1/ protected routes

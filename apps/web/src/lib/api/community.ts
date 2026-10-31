@@ -614,7 +614,7 @@ export async function verify5YearBenchmark(payload: {
   // No client-side fallback: a benchmark is only shown when the backend actually ran it.
   const res = await fetch(`${API_BASE}/api/v1/community/verify-5y`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
@@ -639,7 +639,7 @@ export async function togglePostLike(postId: string, username: string = 'SeniorQ
 
 
 
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
 
 
 
@@ -695,7 +695,7 @@ export async function rateCommunityStrategy(strategyId: string, rating: number, 
 
 
 
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
 
 
 
@@ -748,6 +748,7 @@ export async function forkCommunityStrategy(strategyId: string) {
 
 
       method: 'POST',
+      headers: getAuthHeaders(),
 
 
 
@@ -827,7 +828,7 @@ export async function runCloudSandboxPreview(payload: {
 
 
 
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
 
 
 
@@ -935,7 +936,11 @@ export async function fetchDirectMessages(user1: string, user2: string) {
 
 
 
-      `${API_BASE}/api/v1/community/messages?user1=${encodeURIComponent(user1)}&user2=${encodeURIComponent(user2)}`
+      `${API_BASE}/api/v1/community/messages?user1=${encodeURIComponent(user1)}&user2=${encodeURIComponent(user2)}`,
+
+
+
+    { headers: getAuthHeaders() }
 
 
 
@@ -999,7 +1004,7 @@ export async function sendDirectMessage(sender: string, receiver: string, conten
 
 
 
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
 
 
 
