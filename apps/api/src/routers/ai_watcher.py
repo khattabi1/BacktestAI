@@ -149,7 +149,7 @@ async def diagnose_session(req: DiagnoseRequest):
         trades_summary_lines.append(line)
 
     prompt_text = (
-        f"You are Meta Muse Spark 1.3 Contributor, an institutional trading coach and quantitative psychologist.\n"
+        f"You are Meta Muse Spark 1.3, an institutional trading coach and quantitative psychologist.\n"
         f"Review this trader's manual backtest session ({total} trades, Win Rate: {win_rate}%, Net PnL: {net_pnl_r}R):\n\n"
         + "\n".join(trades_summary_lines)
         + "\n\n"
@@ -166,7 +166,7 @@ async def diagnose_session(req: DiagnoseRequest):
         f'}}'
     )
 
-    model_name = os.environ.get("META_MODEL_EXECUTOR", MUSE_SPARK_CONTRIBUTOR_MODEL)
+    model_name = os.environ.get("META_MODEL_EXECUTOR", "muse-spark-1.3")
     adapter = MetaModelAdapter(default_model=model_name)
     msg = Message(role=Role.USER, content=prompt_text)
 

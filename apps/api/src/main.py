@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 import os
 
 # Ensure UTF-8 output on Windows console to prevent cp1252 charmap encoding errors
@@ -17,10 +17,11 @@ from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
-from .routers import market_data, strategies, backtests, auth, admin, agent, jobs, workspace_files, community, journal
+from .routers import market_data, strategies, backtests, auth, admin, agent, jobs, workspace_files, community, journal, ai_watcher, ai_cloner
 from .job_queue import job_queue
 from .db import init_database
 from .db.jwt_auth import decode_access_token
@@ -41,6 +42,9 @@ PUBLIC_PATHS = {
     "/api/v1/market-data/broker-symbols-catalog",
     "/api/v1/community/sandbox-preview",
     "/api/v1/community/verify-5y",
+    "/api/v1/ai-watcher/diagnose",
+    "/api/v1/ai-watcher/trade-card",
+    "/api/v1/ai-cloner/clone",
 }
 
 class InstitutionalAuthMiddleware(BaseHTTPMiddleware):
@@ -153,6 +157,10 @@ app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(workspace_files.router, prefix="/api/v1")
 app.include_router(community.router, prefix="/api/v1")
 app.include_router(journal.router, prefix="/api/v1")
+app.include_router(ai_watcher.router, prefix="/api/v1")
+app.include_router(ai_cloner.router, prefix="/api/v1")
+os.makedirs("data/uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="data/uploads"), name="uploads")
 
 
 @app.get("/health", tags=["Health"])
