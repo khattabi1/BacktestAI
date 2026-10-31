@@ -34,13 +34,19 @@ def init_database(db_path: Optional[Path] = None) -> None:
     # Create all tables defined in models.py
     Base.metadata.create_all(bind=sa_engine)
 
-    # Ensure version_num column exists on backtest_runs (lightweight SQLite migration)
-    with sa_engine.connect() as conn:
-        try:
-            conn.execute(text("ALTER TABLE backtest_runs ADD COLUMN version_num INTEGER DEFAULT 1;"))
-            conn.commit()
-        except Exception:
-            pass
+    # Lightweight migrations: add columns that create_all() does not add to existing tables.
+    # Each ALTER runs in its own transaction because PostgreSQL aborts a transaction on error.
+    for table, column, col_type in (
+        ("backtest_runs", "version_num", "INTEGER DEFAULT 1"),
+        ("trades", "screenshot_path", "VARCHAR(512)"),
+        ("trades", "trade_card_json", "TEXT"),
+    ):
+        with sa_engine.connect() as conn:
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type};"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
     
     # Seed baseline records using SQLAlchemy ORM Session
     with Session(sa_engine) as session:

@@ -62,7 +62,7 @@ export function syncSessionToJournalDb(session: BacktestSession) {
       setup_notes: autopsySummary,
       conclusion: session.status === 'COMPLETED' ? autopsySummary : undefined,
       status: outcomeStatus,
-      sharpe_recorded: session.metrics?.sharpeRatio || (netPnl >= 0 ? 1.85 : 0.45),
+      sharpe_recorded: session.metrics?.sharpeRatio ?? null,
       win_rate_recorded: winRate,
       tags: [session.symbol, session.timeframe, session.status, 'PersistentDB'],
     }),
@@ -330,11 +330,22 @@ export const useSessionStore = create<SessionState>()(
         set((state) => {
           const remaining = state.sessions.filter((s) => s.id !== sessionId);
           const nextActive = remaining.length > 0 ? remaining[0].id : '';
+          const { [sessionId]: _cards, ...restCards } = state.aiTradeCards;
+          const { [sessionId]: _feedback, ...restFeedback } = state.aiCoachFeedback;
           return {
             sessions: remaining,
             activeSessionId: nextActive,
+            aiTradeCards: restCards,
+            aiCoachFeedback: restFeedback,
           };
         });
+
+        // Cascade delete on the server: trades, journal entries, and screenshots on disk
+        if (typeof window !== 'undefined') {
+          fetch(`/api/v1/ai-watcher/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' }).catch((err) => {
+            console.warn('[SessionStore] Server session delete error:', err);
+          });
+        }
       },
 
       resetSession: (sessionId: string) => {

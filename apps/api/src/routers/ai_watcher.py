@@ -15,7 +15,7 @@ import os
 import re
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 
 from packages.domain.domain.trade_card import (
     TradeCard,
@@ -45,58 +45,108 @@ class SaveTradeCardRequest(BaseModel):
 
 
 @router.post("/trade-card")
-async def save_trade_card_endpoint(req: SaveTradeCardRequest):
+async def save_trade_card_endpoint(req: SaveTradeCardRequest, background_tasks: BackgroundTasks):
     """
-    Ingests a closed trade from Backtest Studio.
-    Decodes the canvas WebP snapshot and writes it as a native .webp file on disk:
-    data/uploads/screenshots/{session_id}/{trade_id}.webp
-    and stores the trade record in PostgreSQL.
+    Ingests a closed trade from Backtest Studio:
+    1. Writes the canvas WebP snapshot to data/uploads/screenshots/{session_id}/{trade_id}.webp
+    2. Computes the local MathContext (EMA50/200, RSI14, ATR14, SL distance, RR) and the R-multiple
+    3. Persists the trade + card JSON to the database
+    4. Runs Chart Vision (Muse Spark) on the snapshot in the background and updates the card
     """
-    session_id = req.session_id
-    trade_data = req.trade
-    trade_id = str(trade_data.get("trade_id") or trade_data.get("id") or "trd")
+    from apps.api.src.db.repository import db_repo
+    from apps.api.src.services.ai_watcher_service import ai_watcher_service
 
-    # 1. Save screenshot to disk: data/uploads/screenshots/{session_id}/{trade_id}.webp
-    b64 = trade_data.get("canvas_snapshot_base64") or trade_data.get("screenshot_base64")
+    session_id = req.session_id
+    trade_data = dict(req.trade)
+    trade_id = str(trade_data.get("trade_id") or trade_data.get("id") or "trd")
+    trade_data["trade_id"] = trade_id
+    # Stable primary key so the background vision update overwrites the same row
+    trade_data["id"] = f"{session_id}:{trade_id}"[:36]
+
+    # 1. Screenshot to disk (kept in memory only for the vision call)
+    b64 = trade_data.pop("canvas_snapshot_base64", None) or trade_data.pop("screenshot_base64", None)
     screenshot_path = None
     if b64:
         from apps.api.src.services.screenshot_storage import save_screenshot_file
         screenshot_path = save_screenshot_file(session_id, trade_id, b64)
         trade_data["screenshot_path"] = screenshot_path
 
-    # 2. Persist to PostgreSQL / SQLite
-    from apps.api.src.db.repository import db_repo
-    try:
-        db_repo.save_session_trade(session_id, trade_data)
-    except Exception as e:
-        logger.warning(f"[AI Watcher] Failed to persist trade to DB: {e}")
+    # 2. Local math context from the bars that closed before entry
+    timeframe = str(trade_data.get("timeframe") or "1h")
+    bars = ai_watcher_service.load_bars_before_entry(
+        symbol=str(trade_data.get("symbol", "XAUUSD")),
+        timeframe=timeframe,
+        entry_time=trade_data.get("entry_time"),
+    )
+    card = TradeCard(
+        trade_id=trade_id,
+        sequence_number=int(trade_data.get("sequence_number", 1)),
+        status=TradeStatus.RAW,
+        symbol=str(trade_data.get("symbol", "XAUUSD")),
+        direction=str(trade_data.get("direction", "BUY")).upper(),
+        entry_price=float(trade_data.get("entry_price", 0.0)),
+        exit_price=float(trade_data.get("exit_price", 0.0)),
+        stop_loss=float(trade_data["stop_loss"]) if trade_data.get("stop_loss") is not None else None,
+        take_profit=float(trade_data["take_profit"]) if trade_data.get("take_profit") is not None else None,
+        lot_size=float(trade_data.get("lot_size", trade_data.get("quantity", 1.0))),
+        pnl=float(trade_data.get("pnl", 0.0)),
+        pnl_r_multiple=ai_watcher_service.calculate_r_multiple(trade_data) or 0.0,
+        screenshot_path=screenshot_path,
+        math_context=ai_watcher_service.calculate_local_math_context(trade_data, bars),
+    )
 
-    # 3. Add to in-memory delta cache
-    try:
-        from apps.api.src.services.ai_watcher_service import ai_watcher_service
-        card = TradeCard(
-            trade_id=trade_id,
-            sequence_number=int(trade_data.get("sequence_number", 1)),
-            status=TradeStatus.PROCESSED,
-            symbol=str(trade_data.get("symbol", "XAUUSD")),
-            direction=str(trade_data.get("direction", "BUY")).upper(),
-            entry_price=float(trade_data.get("entry_price", 0.0)),
-            exit_price=float(trade_data.get("exit_price", 0.0)),
-            stop_loss=float(trade_data["stop_loss"]) if trade_data.get("stop_loss") is not None else None,
-            take_profit=float(trade_data["take_profit"]) if trade_data.get("take_profit") is not None else None,
-            lot_size=float(trade_data.get("lot_size", trade_data.get("quantity", 1.0))),
-            pnl=float(trade_data.get("pnl", 0.0)),
-            screenshot_path=screenshot_path,
-        )
-        ai_watcher_service.save_to_session_cache(session_id, [card])
-    except Exception as e:
-        logger.warning(f"[AI Watcher] Failed to cache trade card: {e}")
+    # 3. Persist trade + card (without base64) and cache it
+    _persist_card(session_id, trade_data, card)
+
+    # 4. Vision tagging runs after the response so the replay never waits on the model
+    if b64:
+        background_tasks.add_task(_tag_card_with_vision, session_id, trade_data, card, b64)
+    else:
+        ai_watcher_service.save_to_session_cache(session_id, [ai_watcher_service.mark_trade_processed(card)])
 
     return {
         "status": "success",
         "trade_id": trade_id,
         "screenshot_path": screenshot_path,
+        "math_context": card.math_context.model_dump() if card.math_context else None,
+        "pnl_r_multiple": card.pnl_r_multiple,
+        "vision": "queued" if b64 else "skipped",
     }
+
+
+def _persist_card(session_id: str, trade_data: Dict[str, Any], card: TradeCard) -> None:
+    from apps.api.src.db.repository import db_repo
+    from apps.api.src.services.ai_watcher_service import ai_watcher_service
+
+    card_json = card.model_copy(update={"canvas_snapshot_base64": None}).model_dump_json()
+    try:
+        db_repo.save_session_trade(session_id, {**trade_data, "trade_card_json": card_json})
+    except Exception as e:
+        logger.error(f"[AI Watcher] Failed to persist trade {card.trade_id} to DB: {e}")
+    ai_watcher_service.save_to_session_cache(session_id, [card.model_copy(update={"canvas_snapshot_base64": None})])
+
+
+async def _tag_card_with_vision(session_id: str, trade_data: Dict[str, Any], card: TradeCard, b64: str) -> None:
+    """Background task: Muse Spark reads the chart snapshot and fills VisualContext."""
+    from apps.api.src.services.chart_vision_service import ChartVisionService
+
+    try:
+        tagged = await ChartVisionService().tag_trade_card(card.model_copy(update={"canvas_snapshot_base64": b64}))
+    except Exception as e:
+        logger.error(f"[AI Watcher] Vision tagging failed for {card.trade_id}: {e}")
+        return
+    _persist_card(session_id, trade_data, tagged)
+
+
+@router.delete("/sessions/{session_id}")
+async def delete_replay_session_endpoint(session_id: str):
+    """
+    Deletes a Replay Studio session with cascade cleanup:
+    trades, journal entries, screenshots on disk, and the in-memory trade card cache.
+    """
+    from apps.api.src.db.repository import db_repo
+    deleted = db_repo.delete_replay_session(session_id)
+    return {"status": "deleted" if deleted else "not_found", "session_id": session_id}
 
 
 class DiagnoseRequest(BaseModel):
@@ -128,14 +178,18 @@ async def diagnose_session(req: DiagnoseRequest):
         )
 
     # 1. Compute macro stats
-    total = len(req.trades)
-    winning = sum(1 for t in req.trades if t.pnl_r_multiple > 0)
+    # Use the analyzed cards (vision + math context) instead of what the browser sent
+    from apps.api.src.services.ai_watcher_service import ai_watcher_service
+    trades = ai_watcher_service.enrich_trades(req.session_id, req.trades)
+
+    total = len(trades)
+    winning = sum(1 for t in trades if t.pnl > 0)
     win_rate = round((winning / total) * 100.0, 1) if total > 0 else 0.0
-    net_pnl_r = round(sum(t.pnl_r_multiple for t in req.trades), 2)
+    net_pnl_r = round(sum(t.pnl_r_multiple for t in trades), 2)
 
     # 2. Format trades summary for Meta Muse Spark 1.3 Contributor
     trades_summary_lines: List[str] = []
-    for i, t in enumerate(req.trades, 1):
+    for i, t in enumerate(trades, 1):
         m_ctx = t.math_context
         v_ctx = t.visual_context
         line = (
@@ -143,9 +197,15 @@ async def diagnose_session(req: DiagnoseRequest):
             f"SL={t.stop_loss}, TP={t.take_profit}. "
         )
         if m_ctx:
-            line += f"Math: DistToSL={m_ctx.distance_to_sl_pips}pips, RR={m_ctx.rr_ratio}, Volatility={m_ctx.atr_regime}. "
+            line += (
+                f"Math: vsEMA50={m_ctx.price_vs_ema50}, vsEMA200={m_ctx.price_vs_ema200}, RSI14={m_ctx.rsi_14}, "
+                f"DistToSL={m_ctx.distance_to_sl_pips}pips, RR={m_ctx.rr_ratio}, Volatility={m_ctx.atr_regime}. "
+            )
         if v_ctx:
-            line += f"Visual: Archetype={v_ctx.setup_archetype}, SL_Quality={v_ctx.sl_placement_quality}."
+            line += (
+                f"Visual: Archetype={v_ctx.setup_archetype}, Wick={v_ctx.wick_rejection}, "
+                f"SL_Quality={v_ctx.sl_placement_quality}, Chart='{v_ctx.chart_summary}'."
+            )
         trades_summary_lines.append(line)
 
     prompt_text = (
@@ -183,11 +243,11 @@ async def diagnose_session(req: DiagnoseRequest):
 
     except Exception as exc:
         logger.warning(f"[AI WATCHER] Error calling Meta Model API: {exc}. Using heuristic fallback.")
-        data = _generate_heuristic_coach_feedback(req.trades, win_rate, net_pnl_r)
+        data = _generate_heuristic_coach_feedback(trades, win_rate, net_pnl_r)
         model_used = f"{model_name} (Local Heuristic Fallback)"
 
     if not data:
-        data = _generate_heuristic_coach_feedback(req.trades, win_rate, net_pnl_r)
+        data = _generate_heuristic_coach_feedback(trades, win_rate, net_pnl_r)
         model_used = f"{model_name} (Local Heuristic Fallback)"
 
     return DiagnoseResponse(

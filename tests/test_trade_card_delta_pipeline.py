@@ -141,9 +141,41 @@ def test_ai_watcher_service_computes_math_context_locally():
     math_ctx = service.calculate_local_math_context(raw_trade_data, market_bars)
 
     assert isinstance(math_ctx, MathContext)
-    assert math_ctx.price_vs_ema50 in ("ABOVE", "BELOW", "NEAR")
+    # 3 bars are not enough for EMA50: report NEUTRAL instead of guessing
+    assert math_ctx.price_vs_ema50 == "NEUTRAL"
     assert math_ctx.distance_to_sl_pips is not None
     assert math_ctx.distance_to_sl_pips > 0
+
+
+def test_math_context_indicators_on_uptrend():
+    service = AIWatcherService()
+    # 250 rising bars: entry above both EMAs, RSI high, ATR populated
+    market_bars = [
+        {"close": 2500.0 + i, "high": 2501.0 + i, "low": 2499.0 + i}
+        for i in range(250)
+    ]
+    raw_trade = {
+        "symbol": "XAUUSD", "direction": "BUY",
+        "entry_price": 2755.0, "stop_loss": 2750.0, "take_profit": 2770.0,
+    }
+    ctx = service.calculate_local_math_context(raw_trade, market_bars)
+    assert ctx.price_vs_ema50 == "ABOVE"
+    assert ctx.price_vs_ema200 == "ABOVE"
+    assert ctx.rsi_14 is not None and ctx.rsi_14 > 70
+    assert ctx.atr_14 is not None and ctx.atr_14 > 0
+    assert ctx.rr_ratio == 3.0
+
+
+def test_r_multiple_from_real_prices():
+    assert AIWatcherService.calculate_r_multiple(
+        {"direction": "BUY", "entry_price": 100.0, "exit_price": 104.0, "stop_loss": 98.0}
+    ) == 2.0
+    assert AIWatcherService.calculate_r_multiple(
+        {"direction": "SELL", "entry_price": 100.0, "exit_price": 101.0, "stop_loss": 101.0}
+    ) == -1.0
+    assert AIWatcherService.calculate_r_multiple(
+        {"direction": "BUY", "entry_price": 100.0, "exit_price": 104.0}
+    ) is None
 
 
 def test_ai_watcher_service_delta_caching_lifecycle():

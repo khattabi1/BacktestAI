@@ -24,6 +24,32 @@ interface AIWatcherSlotProps {
   trades: Trade[];
 }
 
+/**
+ * Builds TradeCards from the real closed trades. Math context (EMA, RSI, ATR, R-multiple)
+ * and vision context are computed on the server from stored cards, never filled in here.
+ */
+function buildTradeCards(trades: Trade[], fallbackSymbol: string) {
+  return trades.map((t, idx) => {
+    const isLong = t.side === 'LONG';
+    const risk = t.stopLoss != null ? Math.abs(t.entryPrice - t.stopLoss) : 0;
+    const rMultiple = risk > 0 ? ((t.exitPrice - t.entryPrice) * (isLong ? 1 : -1)) / risk : 0;
+    return {
+      trade_id: t.tradeId || (t as any).id || `trd_${idx + 1}`,
+      sequence_number: idx + 1,
+      status: 'RAW',
+      symbol: t.symbol || fallbackSymbol,
+      direction: isLong ? 'BUY' : 'SELL',
+      entry_price: t.entryPrice,
+      exit_price: t.exitPrice,
+      stop_loss: t.stopLoss,
+      take_profit: t.takeProfit,
+      lot_size: t.quantity || 1.0,
+      pnl: t.pnl,
+      pnl_r_multiple: Number(rMultiple.toFixed(2)),
+    };
+  });
+}
+
 export function AIWatcherSlot({
   sessionId,
   symbol,
@@ -49,32 +75,7 @@ export function AIWatcherSlot({
     if (closedCount === 0) return;
     setIsDiagnosing(true);
     try {
-      const tradeCards = trades.map((t, idx) => ({
-        trade_id: t.tradeId || (t as any).id || `trd_${idx + 1}`,
-        sequence_number: idx + 1,
-        status: 'PROCESSED',
-        symbol: t.symbol || symbol,
-        direction: t.side === 'LONG' ? 'BUY' : 'SELL',
-        entry_price: t.entryPrice,
-        exit_price: t.exitPrice,
-        stop_loss: t.stopLoss,
-        take_profit: t.takeProfit,
-        lot_size: t.quantity || 1.0,
-        pnl: t.pnl,
-        pnl_r_multiple: t.pnl >= 0 ? 1.5 : -1.0,
-        math_context: {
-          price_vs_ema50: t.entryPrice > 0 ? 'ABOVE' : 'BELOW',
-          price_vs_ema200: 'ABOVE',
-          distance_to_sl_pips: 40.0,
-          rr_ratio: 2.0,
-          atr_regime: 'NORMAL',
-        },
-        visual_context: {
-          setup_archetype: 'IMPULSE_BREAKOUT',
-          sl_placement_quality: 'STRUCTURAL_SWING',
-          chart_summary: `Trade executed on ${t.symbol}`,
-        },
-      }));
+      const tradeCards = buildTradeCards(trades, symbol);
 
       const res = await fetch('/api/v1/ai-watcher/diagnose', {
         method: 'POST',
@@ -101,25 +102,7 @@ export function AIWatcherSlot({
     if (closedCount === 0) return;
     setIsCloning(true);
     try {
-      const tradeCards = trades.map((t, idx) => ({
-        trade_id: t.tradeId || (t as any).id || `trd_${idx + 1}`,
-        sequence_number: idx + 1,
-        status: 'PROCESSED',
-        symbol: t.symbol || symbol,
-        direction: t.side === 'LONG' ? 'BUY' : 'SELL',
-        entry_price: t.entryPrice,
-        exit_price: t.exitPrice,
-        stop_loss: t.stopLoss,
-        take_profit: t.takeProfit,
-        lot_size: t.quantity || 1.0,
-        pnl: t.pnl,
-        pnl_r_multiple: t.pnl >= 0 ? 1.5 : -1.0,
-        math_context: {
-          price_vs_ema50: 'ABOVE',
-          distance_to_sl_pips: 45.0,
-          rr_ratio: 2.2,
-        },
-      }));
+      const tradeCards = buildTradeCards(trades, symbol);
 
       const res = await fetch('/api/v1/ai-cloner/clone', {
         method: 'POST',

@@ -299,6 +299,7 @@ function ActiveWorkspaceSession({ session }: { session: BacktestSession }) {
         id: tid,
         trade_id: tid,
         symbol: closed.symbol || symbol,
+        timeframe: currentTimeframe,
         direction: (closed.side === 'LONG' ? 'BUY' : 'SELL') as 'BUY' | 'SELL',
         entry_price: closed.entryPrice,
         exit_price: closed.exitPrice,

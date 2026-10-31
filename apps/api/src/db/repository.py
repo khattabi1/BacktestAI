@@ -1643,8 +1643,26 @@ class DatabaseRepository:
         if not card_json and trade_data.get("trade_card"):
             card_json = json.dumps(trade_data["trade_card"])
 
+        timeframe = str(trade_data.get("timeframe", "1h"))
+
         if self.use_postgres:
             with engine.begin() as conn:
+                # trades.session_id has a FK to backtest_sessions; create the session row if the
+                # trade arrives before the journal sync that normally creates it.
+                conn.execute(
+                    text("""
+                        INSERT INTO backtest_sessions (
+                            id, name, symbol, timeframe, initial_capital, leverage,
+                            current_bar_index, status, created_at, updated_at
+                        )
+                        VALUES (
+                            :id, :id, :symbol, :timeframe, 10000.0, 1.0, 0, 'active',
+                            TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+                        )
+                        ON CONFLICT (id) DO NOTHING
+                    """),
+                    {"id": session_id, "symbol": symbol, "timeframe": timeframe},
+                )
                 conn.execute(
                     text("""
                         INSERT INTO trades (
@@ -1682,6 +1700,16 @@ class DatabaseRepository:
             cursor = conn.cursor()
             cursor.execute(
                 """
+                INSERT OR IGNORE INTO backtest_sessions (
+                    id, name, symbol, timeframe, initial_capital, leverage,
+                    current_bar_index, status, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, 10000.0, 1.0, 0, 'active', datetime('now', 'utc'), datetime('now', 'utc'));
+                """,
+                (session_id, session_id, symbol, timeframe),
+            )
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO trades (
                     id, session_id, trade_id, symbol, side,
                     entry_time, entry_price, exit_time, exit_price,
@@ -1700,19 +1728,6 @@ class DatabaseRepository:
             conn.commit()
             cursor.execute("SELECT * FROM trades WHERE id = ?;", (tid,))
             return _row_to_dict(cursor.fetchone())
-
-    def get_session_trades(self, session_id: str) -> List[Dict[str, Any]]:
-        """Returns all trades for a session including screenshots and trade cards."""
-        if self.use_postgres:
-            with engine.connect() as conn:
-                rows = conn.execute(text("SELECT * FROM trades WHERE session_id = :sid ORDER BY entry_time ASC"), {"sid": session_id}).mappings().all()
-                return [_row_to_dict(r) for r in rows]
-
-        with get_db_connection(self.db_path) as conn:
-            self._ensure_trades_schema(conn)
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM trades WHERE session_id = ? ORDER BY entry_time ASC;", (session_id,))
-            return [_row_to_dict(r) for r in cursor.fetchall()]
 
     def get_session_trades(self, session_id: str) -> List[Dict[str, Any]]:
         """Returns all trades for a session including screenshots and trade cards."""

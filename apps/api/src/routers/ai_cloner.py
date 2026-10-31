@@ -67,7 +67,11 @@ async def clone_strategy(req: CloneStrategyRequest):
             detail="At least 1 trade is required to initiate strategy reverse-engineering.",
         )
 
-    sample_size = len(req.trades)
+    # Use the analyzed cards (vision + math context) instead of what the browser sent
+    from apps.api.src.services.ai_watcher_service import ai_watcher_service
+    trades = ai_watcher_service.enrich_trades(req.session_id, req.trades)
+
+    sample_size = len(trades)
 
     # 1. Evaluate Statistical Sufficiency
     if sample_size < 5:
@@ -92,7 +96,7 @@ async def clone_strategy(req: CloneStrategyRequest):
 
     # 2. Extract trade sequence summary for Meta Model
     trade_summary_lines: List[str] = []
-    for i, t in enumerate(req.trades, 1):
+    for i, t in enumerate(trades, 1):
         m = t.math_context
         v = t.visual_context
         line = (
@@ -139,7 +143,7 @@ async def clone_strategy(req: CloneStrategyRequest):
 
     # If sample size is insufficient, bypass heavy LLM inference to protect user credits and latency
     if sufficiency_status == "INSUFFICIENT":
-        parsed_blueprint = _generate_heuristic_blueprint(req.trades, req.symbol, req.timeframe)
+        parsed_blueprint = _generate_heuristic_blueprint(trades, req.symbol, req.timeframe)
         model_used = f"{model_name} (Preliminary Insufficient Sample)"
     else:
         try:
@@ -156,7 +160,7 @@ async def clone_strategy(req: CloneStrategyRequest):
             model_used = f"{model_name} (Local Heuristic Fallback)"
 
     if not parsed_blueprint:
-        parsed_blueprint = _generate_heuristic_blueprint(req.trades, req.symbol, req.timeframe)
+        parsed_blueprint = _generate_heuristic_blueprint(trades, req.symbol, req.timeframe)
         if "Fallback" not in model_used:
             model_used = f"{model_name} (Local Heuristic Fallback)"
 
