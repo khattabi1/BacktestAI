@@ -28,7 +28,7 @@ import {
   Pencil,
   Zap,
 } from 'lucide-react';
-import { OpenAlgoChartProps, OpenAlgoBar, ChartTrade, OpenAlgoChartApi } from './types';
+import { OpenAlgoChartProps, OpenAlgoBar, ChartTrade, OpenAlgoChartApi, TradeSnapshotOverlay } from './types';
 import { buildOpenAlgoTradeMarkers } from './markers';
 import { ReplayController } from './ReplayController';
 import { QuantLoader, QuantLoaderIcon } from './QuantLoader';
@@ -859,50 +859,184 @@ const OpenAlgoChartComponent: React.FC<OpenAlgoChartProps> = ({
           scaleListeners.current.delete(cb);
         };
       },
-      getCanvasSnapshot: () => {
+      getCanvasSnapshot: (tradeOverlay?: TradeSnapshotOverlay) => {
+        let baseCanvas: HTMLCanvasElement | null = null;
         try {
           if (widgetRef.current && typeof (widgetRef.current as any).chart?.takeScreenshot === 'function') {
-            const chartCanvas = (widgetRef.current as any).chart.takeScreenshot();
-            if (chartCanvas && typeof chartCanvas.toDataURL === 'function') {
-              return chartCanvas.toDataURL('image/webp', 0.85);
-            }
+            baseCanvas = (widgetRef.current as any).chart.takeScreenshot();
           }
         } catch (err) {
           console.warn('[OpenAlgoChart] widget.chart.takeScreenshot failed:', err);
         }
 
         // Fallback: composite all visible canvases from containerRef
-        if (!containerRef.current) return null;
-        const canvases = Array.from(containerRef.current.querySelectorAll('canvas'));
-        if (canvases.length === 0) return null;
+        if (!baseCanvas) {
+          if (!containerRef.current) return null;
+          const canvases = Array.from(containerRef.current.querySelectorAll('canvas'));
+          if (canvases.length === 0) return null;
 
-        try {
-          let maxWidth = 0;
-          let maxHeight = 0;
-          for (const c of canvases) {
-            if (c.width > maxWidth) maxWidth = c.width;
-            if (c.height > maxHeight) maxHeight = c.height;
+          try {
+            let maxWidth = 0;
+            let maxHeight = 0;
+            for (const c of canvases) {
+              if (c.width > maxWidth) maxWidth = c.width;
+              if (c.height > maxHeight) maxHeight = c.height;
+            }
+            if (maxWidth === 0 || maxHeight === 0) return null;
+
+            const composite = document.createElement('canvas');
+            composite.width = maxWidth;
+            composite.height = maxHeight;
+            const ctx = composite.getContext('2d');
+            if (!ctx) return null;
+
+            ctx.fillStyle = '#080D15';
+            ctx.fillRect(0, 0, maxWidth, maxHeight);
+
+            for (const c of canvases) {
+              if (c.width > 0 && c.height > 0) {
+                ctx.drawImage(c, 0, 0, maxWidth, maxHeight);
+              }
+            }
+            baseCanvas = composite;
+          } catch (fallbackErr) {
+            console.warn('[OpenAlgoChart] Canvas fallback failed:', fallbackErr);
+            return null;
           }
-          if (maxWidth === 0 || maxHeight === 0) return null;
+        }
 
-          const composite = document.createElement('canvas');
-          composite.width = maxWidth;
-          composite.height = maxHeight;
-          const ctx = composite.getContext('2d');
-          if (!ctx) return null;
+        if (!baseCanvas) return null;
 
-          ctx.fillStyle = '#080D15';
-          ctx.fillRect(0, 0, maxWidth, maxHeight);
+        // Annotate canvas with Symbol/Timeframe watermark HUD and Entry/SL/TP/Exit trade levels
+        try {
+          const annotated = document.createElement('canvas');
+          annotated.width = baseCanvas.width;
+          annotated.height = baseCanvas.height;
+          const ctx = annotated.getContext('2d');
+          if (!ctx) return baseCanvas.toDataURL('image/webp', 0.85);
 
-          for (const c of canvases) {
-            if (c.width > 0 && c.height > 0) {
-              ctx.drawImage(c, 0, 0, maxWidth, maxHeight);
+          // Draw base chart
+          ctx.drawImage(baseCanvas, 0, 0);
+
+          const clientWidth = (widgetRef.current as any)?._host?._width || containerRef.current?.clientWidth || baseCanvas.width;
+          const clientHeight = (widgetRef.current as any)?._host?._height || containerRef.current?.clientHeight || baseCanvas.height;
+          const scaleX = baseCanvas.width / clientWidth;
+          const scaleY = baseCanvas.height / clientHeight;
+
+          ctx.save();
+
+          // 1. Draw Symbol & Timeframe HUD Badge (Top-Left)
+          const sym = (tradeOverlay?.symbol || symbol || 'CHART').toUpperCase();
+          const tf = (tradeOverlay?.timeframe || timeframe || activeInterval || '').toUpperCase();
+          const title = tf ? `${sym} · ${tf}` : sym;
+
+          const badgeX = 16 * scaleX;
+          const badgeY = 16 * scaleY;
+          const badgePadX = 12 * scaleX;
+          const fontSize = Math.max(12, Math.round(14 * scaleY));
+          ctx.font = `bold ${fontSize}px monospace`;
+          const textWidth = ctx.measureText(title).width;
+          const badgeW = textWidth + badgePadX * 2;
+          const badgeH = Math.round(28 * scaleY);
+
+          ctx.fillStyle = 'rgba(8, 13, 21, 0.88)';
+          ctx.strokeStyle = '#1A2638';
+          ctx.lineWidth = 1.5 * scaleX;
+          ctx.beginPath();
+          if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 6 * scaleY);
+          } else {
+            ctx.rect(badgeX, badgeY, badgeW, badgeH);
+          }
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#38BDF8';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(title, badgeX + badgePadX, badgeY + badgeH / 2);
+
+          // 2. Draw Trade Horizontal Price Levels (Entry, SL, TP, Exit)
+          if (tradeOverlay) {
+            const plotRect = api.getPlotRect?.() || null;
+            const leftX = plotRect ? plotRect.left * scaleX : 0;
+            const rightX = plotRect ? (plotRect.left + plotRect.width) * scaleX : baseCanvas.width - 70 * scaleX;
+
+            const drawLevel = (
+              price: number,
+              color: string,
+              label: string,
+              dash: number[] = [6 * scaleX, 4 * scaleX]
+            ) => {
+              const cssY = api.priceToCoordinate(price);
+              if (cssY === null || cssY === undefined) return;
+              const y = Math.round(cssY * scaleY);
+              if (y < 0 || y > baseCanvas!.height) return;
+
+              // Horizontal line
+              ctx.strokeStyle = color;
+              ctx.lineWidth = 1.5 * scaleX;
+              ctx.setLineDash(dash);
+              ctx.beginPath();
+              ctx.moveTo(leftX, y);
+              ctx.lineTo(rightX, y);
+              ctx.stroke();
+              ctx.setLineDash([]);
+
+              // Price tag on the right
+              const tagFont = Math.max(10, Math.round(11 * scaleY));
+              ctx.font = `bold ${tagFont}px monospace`;
+              const labelW = ctx.measureText(label).width + 10 * scaleX;
+              const labelH = Math.round(18 * scaleY);
+              const labelX = rightX - labelW - 4 * scaleX;
+              const labelY = y - labelH / 2;
+
+              ctx.fillStyle = 'rgba(8, 13, 21, 0.92)';
+              ctx.strokeStyle = color;
+              ctx.lineWidth = 1 * scaleX;
+              ctx.beginPath();
+              if (typeof ctx.roundRect === 'function') {
+                ctx.roundRect(labelX, labelY, labelW, labelH, 4 * scaleY);
+              } else {
+                ctx.rect(labelX, labelY, labelW, labelH);
+              }
+              ctx.fill();
+              ctx.stroke();
+
+              ctx.fillStyle = color;
+              ctx.textBaseline = 'middle';
+              ctx.fillText(label, labelX + 5 * scaleX, y);
+            };
+
+            // Draw Take Profit (Green)
+            if (tradeOverlay.takeProfit) {
+              drawLevel(tradeOverlay.takeProfit, '#34D399', `TP: ${tradeOverlay.takeProfit.toFixed(2)}`);
+            }
+
+            // Draw Stop Loss (Red)
+            if (tradeOverlay.stopLoss) {
+              drawLevel(tradeOverlay.stopLoss, '#F87171', `SL: ${tradeOverlay.stopLoss.toFixed(2)}`);
+            }
+
+            // Draw Entry (Cyan)
+            if (tradeOverlay.entryPrice) {
+              const dir = tradeOverlay.direction || 'ENTRY';
+              drawLevel(tradeOverlay.entryPrice, '#38BDF8', `${dir}: ${tradeOverlay.entryPrice.toFixed(2)}`, []);
+            }
+
+            // Draw Exit (Emerald / Rose based on PnL)
+            if (tradeOverlay.exitPrice) {
+              const pnlSign = (tradeOverlay.pnl ?? 0) >= 0 ? '+' : '';
+              const pnlText = tradeOverlay.pnl !== undefined ? ` (${pnlSign}$${tradeOverlay.pnl.toFixed(2)})` : '';
+              const exitColor = (tradeOverlay.pnl ?? 0) >= 0 ? '#10B981' : '#EF4444';
+              drawLevel(tradeOverlay.exitPrice, exitColor, `EXIT: ${tradeOverlay.exitPrice.toFixed(2)}${pnlText}`);
             }
           }
-          return composite.toDataURL('image/webp', 0.85);
-        } catch (fallbackErr) {
-          console.warn('[OpenAlgoChart] Canvas fallback failed:', fallbackErr);
-          return null;
+
+          ctx.restore();
+          return annotated.toDataURL('image/webp', 0.88);
+        } catch (annotErr) {
+          console.warn('[OpenAlgoChart] Canvas annotation error, returning base canvas:', annotErr);
+          return baseCanvas.toDataURL('image/webp', 0.85);
         }
       },
     };

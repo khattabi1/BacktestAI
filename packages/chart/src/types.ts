@@ -29,13 +29,25 @@ export interface ReplayStateUpdate {
   progressPct?: number;
 }
 
+export interface TradeSnapshotOverlay {
+  symbol?: string;
+  timeframe?: string;
+  direction?: 'BUY' | 'SELL';
+  entryPrice?: number;
+  exitPrice?: number;
+  stopLoss?: number | null;
+  takeProfit?: number | null;
+  pnl?: number;
+  quantity?: number;
+}
+
 export interface OpenAlgoChartApi {
   priceToCoordinate: (price: number) => number | null;
   coordinateToPrice: (y: number) => number | null;
   getPlotRect: () => { left: number; top: number; width: number; height: number } | null;
   getChartElement: () => HTMLElement | null;
   subscribeScaleChange: (cb: () => void) => () => void;
-  getCanvasSnapshot?: () => string | null;
+  getCanvasSnapshot?: (tradeOverlay?: TradeSnapshotOverlay) => string | null;
 }
 
 export interface OpenAlgoChartProps {

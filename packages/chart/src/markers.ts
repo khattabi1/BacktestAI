@@ -81,7 +81,7 @@ export function buildOpenAlgoTradeMarkers(
         size: 'small',
         color: '#22C55E', // Emerald
         text: `BUY @ ${trade.entryPrice.toFixed(2)}`,
-        id: `entry_${trade.id}`,
+        id: `entry_${trade.id || 'tr'}`,
       });
 
       // Long Exit (only placed once trade actually exits)
@@ -95,7 +95,7 @@ export function buildOpenAlgoTradeMarkers(
             size: 'small',
             color: exitColor,
             text: `${exitLabel} (${formattedPnl})`,
-            id: `exit_${trade.id}`,
+            id: `exit_${trade.id || 'tr'}`,
           });
         }
       }
@@ -108,7 +108,7 @@ export function buildOpenAlgoTradeMarkers(
         size: 'small',
         color: '#EF4444', // Red
         text: `SHORT @ ${trade.entryPrice.toFixed(2)}`,
-        id: `entry_${trade.id}`,
+        id: `entry_${trade.id || 'tr'}`,
       });
 
       // Short Exit (only placed once trade actually exits)
@@ -123,7 +123,7 @@ export function buildOpenAlgoTradeMarkers(
             size: 'small',
             color: exitColor,
             text: `${exitLabel} (${formattedPnl})`,
-            id: `exit_${trade.id}`,
+            id: `exit_${trade.id || 'tr'}`,
           });
         }
       }

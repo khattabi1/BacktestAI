@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } fr
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, PanelRightClose, PanelRightOpen, CheckCircle2 } from 'lucide-react';
-import type { OpenAlgoBar, ReplayStateUpdate, OpenAlgoChartApi } from '@backtest-ai/chart';
+import type { OpenAlgoBar, ReplayStateUpdate, OpenAlgoChartApi, ChartTrade } from '@backtest-ai/chart';
 import { ReplayDataManager } from '@backtest-ai/chart';
 import { useSessionStore, calculateReplayPnl } from '@/stores/sessionStore';
 import type { BacktestSession, ReplayPosition, PendingOrder, Trade } from '@backtest-ai/domain';
@@ -87,6 +87,12 @@ function ActiveWorkspaceSession({ session }: { session: BacktestSession }) {
   pendingOrdersRef.current = pendingOrders;
 
   const [trades, setTrades] = useState<Trade[]>(() => session.trades || []);
+  const chartTrades = useMemo<ChartTrade[]>(() => {
+    return trades.map((t) => ({
+      ...t,
+      id: t.id || t.tradeId,
+    }));
+  }, [trades]);
   const [currentBalance, setCurrentBalance] = useState<number>(() => session.currentBalance ?? balance);
   const [sessionStatus, setSessionStatus] = useState<'ACTIVE' | 'PAUSED' | 'COMPLETED'>(() => session.status || 'ACTIVE');
   const [isDoneDialogOpen, setIsDoneDialogOpen] = useState<boolean>(false);
@@ -276,7 +282,18 @@ function ActiveWorkspaceSession({ session }: { session: BacktestSession }) {
   const recordTradeCardForAIWatcher = useCallback(
     (closed: Trade) => {
       const store = useSessionStore.getState();
-      const snapshot = chartApiRef.current?.getCanvasSnapshot?.() || null;
+      const snapshot = chartApiRef.current?.getCanvasSnapshot?.({
+        symbol: closed.symbol || symbol,
+        timeframe: currentTimeframe || '1h',
+        direction: (closed.side === 'LONG' ? 'BUY' : 'SELL') as 'BUY' | 'SELL',
+        entryPrice: closed.entryPrice,
+        exitPrice: closed.exitPrice,
+        stopLoss: closed.stopLoss,
+        takeProfit: closed.takeProfit,
+        pnl: closed.pnl,
+        quantity: closed.quantity,
+      }) || null;
+
       const tid = closed.tradeId || (closed as any).id;
       const cardPayload = {
         id: tid,
@@ -313,7 +330,7 @@ function ActiveWorkspaceSession({ session }: { session: BacktestSession }) {
         })
         .catch((err) => console.error('[AI Watcher] Upload snapshot network error:', err));
     },
-    [session.id, symbol]
+    [session.id, symbol, currentTimeframe]
   );
 
   // Close Position Handler (Full)
@@ -753,6 +770,7 @@ function ActiveWorkspaceSession({ session }: { session: BacktestSession }) {
           <div className="flex-1 min-w-0 min-h-0 relative overflow-hidden bg-[#080D15]">
             <OpenAlgoChart
               bars={bars}
+              trades={chartTrades}
               symbol={symbol}
               timeframe={currentTimeframe}
               isLoading={isLoading}
@@ -852,7 +870,7 @@ function ActiveWorkspaceSession({ session }: { session: BacktestSession }) {
                 sessionId={session.id}
                 symbol={symbol}
                 timeframe={currentTimeframe}
-                trades={trades}
+              trades={trades}
               />
             </div>
           ) : (
