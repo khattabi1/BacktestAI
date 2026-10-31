@@ -28,16 +28,16 @@ logger = logging.getLogger("backtest_ai.services.chart_vision")
 
 class ChartVisionService:
     """
-    Multimodal vision tagger using Meta Muse Spark 1.3.
+    Multimodal vision tagger using Meta Muse Spark 1.3 Contributor.
     """
 
     def __init__(self, adapter: Optional[MetaModelAdapter] = None) -> None:
-        model_name = os.environ.get("META_MODEL_EXECUTOR", "muse-spark-1.3")
+        model_name = os.environ.get("META_MODEL_EXECUTOR", "muse-spark-1.3-contributor")
         self.adapter = adapter or MetaModelAdapter(default_model=model_name)
 
     async def tag_trade_card(self, trade: TradeCard) -> TradeCard:
         """
-        Analyzes a single TradeCard's chart canvas snapshot via Muse Spark 1.3,
+        Analyzes a single TradeCard's chart canvas snapshot via Muse Spark 1.3 Contributor,
         extracts structured VisualContext, marks status as PROCESSED, and frees base64 memory.
         """
         if trade.status == TradeStatus.PROCESSED:
@@ -55,7 +55,7 @@ class ChartVisionService:
             )
 
         prompt_text = (
-            f"You are Meta Muse Spark 1.3, an expert quant and technical chart analyst.\n"
+            f"You are Meta Muse Spark 1.3 Contributor, an expert quant and technical chart analyst.\n"
             f"Inspect the attached chart canvas snapshot for trade {trade.trade_id}:\n"
             f"- Symbol: {trade.symbol}\n"
             f"- Direction: {trade.direction}\n"

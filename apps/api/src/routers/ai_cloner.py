@@ -106,7 +106,7 @@ async def clone_strategy(req: CloneStrategyRequest):
         trade_summary_lines.append(line)
 
     prompt_text = (
-        f"You are Meta Muse Spark 1.3, a Quantitative Strategy Engineer.\n"
+        f"You are Meta Muse Spark 1.3 Contributor, a Quantitative Strategy Engineer.\n"
         f"Reverse-engineer this trader's manual discretionary backtest session on {req.symbol} ({req.timeframe}):\n"
         f"Sample size: {sample_size} trades.\n\n"
         + "\n".join(trade_summary_lines[:25])  # Keep prompt tight
@@ -130,7 +130,7 @@ async def clone_strategy(req: CloneStrategyRequest):
         f'}}'
     )
 
-    model_name = os.environ.get("META_MODEL_EXECUTOR", "muse-spark-1.3")
+    model_name = os.environ.get("META_MODEL_EXECUTOR", "muse-spark-1.3-contributor")
     adapter = MetaModelAdapter(default_model=model_name)
     msg = Message(role=Role.USER, content=prompt_text)
 

@@ -374,7 +374,7 @@ export function AIWatcherSlot({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Vision Model:</span>
-                    <span className="font-mono font-bold text-cyan-300">Spark 1.3</span>
+                    <span className="font-mono font-bold text-cyan-300">Muse Spark 1.3 Contributor</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Behavioral Guard:</span>

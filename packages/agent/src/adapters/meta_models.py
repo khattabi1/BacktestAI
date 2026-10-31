@@ -32,8 +32,8 @@ logger = logging.getLogger("backtest_ai.agent.adapters.meta")
 load_env_file()
 
 DEFAULT_META_BASE_URL = os.environ.get("META_BASE_URL", "https://api.meta.ai/v1").rstrip("/")
-MUSE_SPARK_MODEL = os.environ.get("META_MODEL_EXECUTOR", "muse-spark-1.3")
-MUSE_SPARK_CONTRIBUTOR_MODEL = MUSE_SPARK_MODEL  # Standard Meta Muse Spark 1.3
+MUSE_SPARK_CONTRIBUTOR_MODEL = os.environ.get("META_MODEL_EXECUTOR", "muse-spark-1.3-contributor")
+MUSE_SPARK_MODEL = MUSE_SPARK_CONTRIBUTOR_MODEL
 MUSE_WONDER_MODEL = os.environ.get("META_MODEL_PLANNER", "muse-wonder")
 MUSE_VOICE_MODEL = os.environ.get("META_MODEL_VOICE", "muse-voice-transcribe")
 

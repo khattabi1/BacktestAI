@@ -468,9 +468,9 @@ def get_available_providers():
                 "id": "meta",
                 "name": "Meta Model API",
                 "badge": "Hackathon",
-                "default_model": os.environ.get("META_MODEL_EXECUTOR", "muse-spark-1.3"),
+                "default_model": os.environ.get("META_MODEL_EXECUTOR", "muse-spark-1.3-contributor"),
                 "models": [
-                    {"id": "muse-spark-1.3", "name": "Muse Spark 1.3", "description": "Fast multimodal vision & quantitative execution"},
+                    {"id": "muse-spark-1.3-contributor", "name": "Muse Spark 1.3 Contributor", "description": "Flagship multimodal vision & behavioral coach"},
                     {"id": "muse-wonder", "name": "Muse Wonder", "description": "Deep mathematical & quantitative reasoning"},
                 ]
             },
