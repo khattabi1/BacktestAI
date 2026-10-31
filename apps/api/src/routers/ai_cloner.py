@@ -130,7 +130,7 @@ async def clone_strategy(req: CloneStrategyRequest):
         f'}}'
     )
 
-    model_name = os.environ.get("META_MODEL_EXECUTOR", "muse-spark-1.3-contributor")
+    model_name = os.environ.get("META_MODEL_ADVISER", os.environ.get("META_MODEL_EXECUTOR", "muse-spark-1.3-contributor"))
     adapter = MetaModelAdapter(default_model=model_name)
     msg = Message(role=Role.USER, content=prompt_text)
 

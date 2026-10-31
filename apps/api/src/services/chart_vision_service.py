@@ -32,7 +32,7 @@ class ChartVisionService:
     """
 
     def __init__(self, adapter: Optional[MetaModelAdapter] = None) -> None:
-        model_name = os.environ.get("META_MODEL_EXECUTOR", "muse-spark-1.3-contributor")
+        model_name = os.environ.get("META_MODEL_ADVISER", os.environ.get("META_MODEL_EXECUTOR", "muse-spark-1.3-contributor"))
         self.adapter = adapter or MetaModelAdapter(default_model=model_name)
 
     async def tag_trade_card(self, trade: TradeCard) -> TradeCard:

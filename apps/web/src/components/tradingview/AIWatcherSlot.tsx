@@ -315,7 +315,7 @@ export function AIWatcherSlot({
             <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
               <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#0C1320] border border-[#162234] text-[9px] font-mono">
                 <span className="text-slate-400">Meta Adviser:</span>
-                <span className="text-cyan-300 font-bold">Spark 1.3 Active</span>
+                <span className="text-cyan-300 font-bold">Spark 1.3 Contributor Active</span>
               </div>
               {aiCoachFeedback.what_to_remove?.[0] && (
                 <div className="bg-[#0C1320] border border-[#1A2638] rounded-xl p-2.5 space-y-1">
@@ -374,7 +374,7 @@ export function AIWatcherSlot({
                 <div className="space-y-1.5 text-[10px] pt-2">
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Meta Adviser:</span>
-                    <span className="font-mono font-bold text-cyan-300">Spark 1.3</span>
+                    <span className="font-mono font-bold text-cyan-300">Spark 1.3 Contributor</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Canvas WebP Hook:</span>
@@ -382,7 +382,7 @@ export function AIWatcherSlot({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Vision Model:</span>
-                    <span className="font-mono font-bold text-cyan-300">Spark 1.3</span>
+                    <span className="font-mono font-bold text-cyan-300">Spark 1.3 Contributor</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Behavioral Guard:</span>
@@ -435,7 +435,7 @@ export function AIWatcherSlot({
               <div className="text-[10px] space-y-1.5 pt-2 text-slate-300">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Meta Adviser:</span>
-                  <span className="font-mono font-bold text-cyan-300">Spark 1.3</span>
+                  <span className="font-mono font-bold text-cyan-300">Spark 1.3 Contributor</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Target Output:</span>
