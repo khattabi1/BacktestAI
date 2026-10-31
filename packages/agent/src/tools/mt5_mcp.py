@@ -616,9 +616,14 @@ def _create_mcp_handler(tool_name: str, harness: Any) -> Callable[..., Coroutine
     return _handler
 
 
+# Tools that place or change real orders. BacktestAI is a research and simulation platform,
+# so the agent never gets them, even if the terminal is logged into a live account.
+LIVE_TRADING_TOOLS = {"order_send"}
+
+
 def register_mt5_mcp_tools(harness: Any) -> List[str]:
     """
-    Dynamically registers all 29 tools from the MT5 FastMCP server into the AgentHarness.
+    Registers the MT5 FastMCP server tools into the AgentHarness, except live order execution.
     Returns the list of registered MT5 MCP tool names.
     """
     registered_names: List[str] = []
@@ -633,6 +638,8 @@ def register_mt5_mcp_tools(harness: Any) -> List[str]:
 
     for tool in tools:
         tool_name = tool.name
+        if tool_name in LIVE_TRADING_TOOLS:
+            continue
         tool_desc = tool.description or f"MetaTrader 5 MCP tool: {tool_name}"
         tool_params = tool.parameters if isinstance(tool.parameters, dict) else {}
 

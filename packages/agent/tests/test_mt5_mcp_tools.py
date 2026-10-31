@@ -1,6 +1,6 @@
 """
 Unit tests for MT5 MCP Tool Bridge in packages/agent.
-Verifies dynamic discovery, registration of all 29 MT5 MCP tools into AgentHarness,
+Verifies dynamic discovery, registration of the MT5 MCP tools (except live order_send) into AgentHarness,
 schema compliance, and clean execution without duplicate conflicts.
 """
 
@@ -30,11 +30,11 @@ class DummyAdapter:
 
 
 def test_mt5_mcp_tools_registration_count():
-    """Verifies exactly 29 tools are registered from the MT5 FastMCP server."""
+    """Verifies the 28 MT5 FastMCP tools are registered (29 minus live order_send)."""
     harness = AgentHarness(session_id="test_mcp_count", user_id="test_user", llm_adapter=DummyAdapter())
     registered = register_mt5_mcp_tools(harness)
 
-    assert len(registered) == 29, f"Expected 29 registered MT5 MCP tools, got {len(registered)}"
+    assert len(registered) == 28, f"Expected 28 registered MT5 MCP tools, got {len(registered)}"
     assert "initialize" in registered
     assert "shutdown" in registered
     assert "login" in registered
@@ -52,7 +52,7 @@ def test_mt5_mcp_tools_registration_count():
     assert "copy_ticks_from_date" in registered
     assert "copy_ticks_range" in registered
     assert "get_last_error" in registered
-    assert "order_send" in registered
+    assert "order_send" not in registered  # live order execution is never exposed to the agent
     assert "order_check" in registered
     assert "positions_get" in registered
     assert "positions_get_by_ticket" in registered
@@ -76,8 +76,8 @@ def test_zero_tool_name_collisions():
     register_workspace_tools(harness, user_id="test_user")
     register_mt5_mcp_tools(harness)
 
-    # 1 ask_user + 27 native domain (including edit_file_partially) + 29 MT5 MCP = 57 unique tools
-    assert len(harness._tools) == 57, f"Expected 57 unique registered tools, got {len(harness._tools)}"
+    # 1 ask_user + 27 native domain (including edit_file_partially) + 28 MT5 MCP = 56 unique tools
+    assert len(harness._tools) == 56, f"Expected 56 unique registered tools, got {len(harness._tools)}"
 
 
 def test_sanitize_json_helpers():

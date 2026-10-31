@@ -1,18 +1,21 @@
-PROPRIETARY & CONFIDENTIAL SOURCE LICENSE (READ-ONLY)
-Copyright (c) 2026 BacktestAI (BacktestAI.io). All rights reserved.
+MIT License
 
-This source code and all related quantitative assets are made available solely for the evaluation, judging, and review in connection with the Meta Global AI Developer Hackathon.
+Copyright (c) 2026 BacktestAI
 
-TERMS AND CONDITIONS:
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-1. READ-ONLY EVALUATION:
-   Permission is granted solely to judges, reviewers, and attendees of the Meta Global AI Developer Hackathon to inspect, review, and test this software locally for the purpose of assessing and evaluating the BacktestAI submission.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-2. PROHIBITION OF REDISTRIBUTION:
-   You may not copy, redistribute, republish, mirror, sell, license, or sublicense this source code, agent mesh architecture, MQL5 templates, or any portion thereof.
-
-3. PROHIBITION OF DERIVATIVE WORKS & COMMERCIAL USE:
-   No right is granted to create derivative works, reverse engineer proprietary logic, or use this software or any part thereof in any commercial or production quantitative trading service without explicit, prior written authorization from the copyright holder.
-
-4. DISCLAIMER:
-   THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
